@@ -1,16 +1,16 @@
-import { useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
-import { 
-  Image, 
-  StyleSheet, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  View, 
-  Alert, 
-  ActivityIndicator 
-} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
 import colors from "../constants/colors";
 import { supabase } from "../lib/supabase";
 
@@ -60,6 +60,21 @@ export default function LoginScreen() {
     loadLanguage();
   }, []);
 
+  useEffect(() => {
+  const checkUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem("user");
+      if (storedUser) {
+        router.replace("/DashboardScreen");
+      }
+    } catch (err) {
+      console.error("Error checking user:", err);
+    }
+  };
+  checkUser();
+}, []);
+
+
   const t = translations[language];
 
   const handleLogin = async () => {
@@ -89,7 +104,7 @@ export default function LoginScreen() {
       // ✅ Login successful
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
       Alert.alert("Success", t.success);
-      router.push("/home");
+      router.replace("/DashboardScreen");
 
     } catch (err) {
       console.error("⚠️ Unexpected Error:", err);
@@ -143,7 +158,7 @@ export default function LoginScreen() {
           onFocus={() => setFocusedInput("password")}
           onBlur={() => setFocusedInput(null)}
         />
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.eyeButton}
           onPress={() => setShowPassword(!showPassword)}
         >

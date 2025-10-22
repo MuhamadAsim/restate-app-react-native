@@ -23,7 +23,7 @@ export default function LanguageScreen() {
   useEffect(() => {
     const loadLanguage = async () => {
       const saved = await AsyncStorage.getItem("appLanguage");
-      // if (saved) router.replace("/login");
+      if (saved) router.replace("/login");
     };
     loadLanguage();
   }, []);

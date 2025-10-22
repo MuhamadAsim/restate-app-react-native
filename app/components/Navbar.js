@@ -9,7 +9,7 @@ export default function Navbar() {
 
   return (
     <View style={{
-      flexDirection: "row",
+      flexDirection: "column",
       alignItems: "center",
       justifyContent: "space-between",
       padding: 10,
