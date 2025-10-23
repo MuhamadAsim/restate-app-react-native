@@ -6,6 +6,12 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
   },
+  navIconImage: {
+  width: 20,
+  height: 20,
+  marginBottom: 2,
+  tintColor: '#fff', // This makes the icon white to match your navbar
+},
   navbar: {
     backgroundColor: colors.primary,
     paddingTop: 50,

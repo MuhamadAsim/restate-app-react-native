@@ -17,6 +17,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { supabase } from "../lib/supabase";
 import { translations } from "./translations/dashboardTranslation";
 import { styles } from "./styles/dashboardScreenStyle";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -56,6 +57,13 @@ export default function DashboardScreen() {
     return () => unsubscribe();
   }, []);
 
+  // Add this: Reload language when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadLanguage();
+    }, [])
+  );
+
   useEffect(() => {
     filterDocuments();
   }, [
@@ -69,6 +77,18 @@ export default function DashboardScreen() {
   const checkConnection = async () => {
     const state = await NetInfo.fetch();
     setIsOnline(state.isConnected);
+  };
+
+  // Separate function to load only language
+  const loadLanguage = async () => {
+    try {
+      const savedLanguage = await AsyncStorage.getItem("appLanguage");
+      if (savedLanguage) {
+        setLanguage(savedLanguage);
+      }
+    } catch (error) {
+      console.error("Error loading language:", error);
+    }
   };
 
   const loadUserAndLanguage = async () => {
