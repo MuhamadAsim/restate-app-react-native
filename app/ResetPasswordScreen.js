@@ -20,49 +20,54 @@ export default function ResetPasswordScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
 
-  // ✅ handle incoming deep link (with recovery token)
- useEffect(() => {
-  const handleDeepLink = async (event) => {
-    const url = event.url;
+  // ✅ Handle deep links (password recovery)
+  useEffect(() => {
+    const handleDeepLink = async (event) => {
+      const url = event.url;
+      console.log("🔗 Opened with URL:", url);
 
-    // Extract hash parameters (after '#')
-    const hashParams = {};
-    const hash = url.split("#")[1];
-    if (hash) {
-      hash.split("&").forEach((pair) => {
-        const [key, value] = pair.split("=");
-        hashParams[key] = decodeURIComponent(value);
-      });
-    }
+      try {
+        // Extract hash parameters after "#"
+        const hashParams = {};
+        const hash = url.split("#")[1];
+        if (hash) {
+          hash.split("&").forEach((pair) => {
+            const [key, value] = pair.split("=");
+            hashParams[key] = decodeURIComponent(value);
+          });
+        }
 
-    // Check if it's a recovery deep link
-    if (hashParams.access_token && hashParams.type === "recovery") {
-      const { data, error } = await supabase.auth.setSession({
-        access_token: hashParams.access_token,
-        refresh_token:
-          hashParams.refresh_token || hashParams.access_token,
-      });
+        // If recovery link detected
+        if (hashParams.access_token && hashParams.type === "recovery") {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: hashParams.access_token,
+            refresh_token:
+              hashParams.refresh_token || hashParams.access_token,
+          });
 
-      if (error) {
-        console.error("❌ Session error:", error);
-      } else {
-        console.log("✅ Session set successfully:", data);
+          if (error) {
+            console.error("❌ Session error:", error);
+          } else {
+            console.log("✅ Session set successfully:", data);
+          }
+        }
+      } catch (err) {
+        console.error("⚠️ Error handling deep link:", err);
       }
-    }
-  };
+    };
 
-  // Handle if app opened directly from deep link
-  Linking.getInitialURL().then((url) => {
-    if (url) handleDeepLink({ url });
-  });
+    // Handle app opened directly from deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
 
-  // Listen for future deep links (when app already open)
-  const subscription = Linking.addEventListener("url", handleDeepLink);
+    // Listen for future deep links (when app already open)
+    const subscription = Linking.addEventListener("url", handleDeepLink);
 
-  return () => subscription.remove();
-}, []);
+    return () => subscription.remove();
+  }, []);
 
-
+  // ✅ Handle password update
   const handleUpdatePassword = async () => {
     if (!newPassword || !confirmPassword) {
       Alert.alert("Error", "Please fill both fields");
@@ -93,7 +98,7 @@ export default function ResetPasswordScreen() {
       <Text style={styles.welcome}>Change Password</Text>
       <Text style={styles.subtitle}>Enter and confirm your new password</Text>
 
-      {/* New Password Field with Eye Icon */}
+      {/* New Password Field */}
       <View style={{ position: "relative", width: "100%" }}>
         <TextInput
           placeholder="New Password"
@@ -120,7 +125,7 @@ export default function ResetPasswordScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Confirm Password Field with Eye Icon */}
+      {/* Confirm Password Field */}
       <View style={{ position: "relative", width: "100%" }}>
         <TextInput
           placeholder="Confirm Password"
@@ -147,6 +152,7 @@ export default function ResetPasswordScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Update Password Button */}
       <TouchableOpacity
         style={styles.loginButton}
         onPress={handleUpdatePassword}

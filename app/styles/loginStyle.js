@@ -114,7 +114,8 @@ const styles = StyleSheet.create({
   forgotText: {
     color: colors.primary,
     textAlign: "center",
-    marginVertical: 15,
+    marginTop: 25,
+    marginBottom: 15,
   },
   dividerContainer: {
     flexDirection: "row",
