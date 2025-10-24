@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 import colors from "../constants/colors";
 import { supabase } from "../lib/supabase";
+import styles from "./styles/loginStyle";
 
 const translations = {
   en: {
@@ -61,19 +61,18 @@ export default function LoginScreen() {
   }, []);
 
   useEffect(() => {
-  const checkUser = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) {
-        router.replace("/DashboardScreen");
+    const checkUser = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem("user");
+        if (storedUser) {
+          router.replace("/DashboardScreen");
+        }
+      } catch (err) {
+        console.error("Error checking user:", err);
       }
-    } catch (err) {
-      console.error("Error checking user:", err);
-    }
-  };
-  checkUser();
-}, []);
-
+    };
+    checkUser();
+  }, []);
 
   const t = translations[language];
 
@@ -85,6 +84,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
+      // 1️⃣ Sign in the user
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -101,8 +101,31 @@ export default function LoginScreen() {
         return;
       }
 
-      // ✅ Login successful
-      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      const user = data.user;
+
+      // 2️⃣ Fetch user's profile info
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("name, picture")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+      }
+
+      // 3️⃣ Merge auth user data with profile data
+      const fullUser = {
+        id: user.id,
+        email: user.email,
+        name: profile?.name || "",
+        picture: profile?.picture || null,
+      };
+
+      // 4️⃣ Save to local storage
+      await AsyncStorage.setItem("user", JSON.stringify(fullUser));
+
+      // 5️⃣ Success feedback & redirect
       Alert.alert("Success", t.success);
       router.replace("/DashboardScreen");
 
@@ -197,7 +220,7 @@ export default function LoginScreen() {
       </TouchableOpacity>
 
       {/* Forgot Password */}
-      <TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push("/ForgotPasswordScreen")}>
         <Text style={styles.forgotText}>{t.forgotPassword}</Text>
       </TouchableOpacity>
 
@@ -229,159 +252,3 @@ export default function LoginScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingHorizontal: 25,
-    paddingTop: 20,
-  },
-  backButton: {
-    marginBottom: 20,
-  },
-  backArrow: {
-    fontSize: 30,
-    fontWeight: "900",
-    color: "#4B00FF",
-  },
-  header: {
-    marginBottom: 40,
-  },
-  welcome: {
-    fontSize: 30,
-    fontWeight: "bold",
-    color: "#4B00FF",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#4B00FF",
-    marginTop: 5,
-  },
-  input: {
-    borderBottomWidth: 1.5,
-    borderColor: "#4B00FF",
-    fontSize: 16,
-    color: "#4B00FF",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    marginVertical: 10,
-  },
-  passwordContainer: {
-    position: "relative",
-    marginVertical: 10,
-  },
-  passwordInput: {
-    borderBottomWidth: 1.5,
-    borderColor: "#4B00FF",
-    fontSize: 16,
-    color: "#4B00FF",
-    paddingVertical: 12,
-    paddingHorizontal: 6,
-    paddingRight: 45, // Space for eye icon
-  },
-  eyeButton: {
-    position: "absolute",
-    right: 5,
-    top: "50%",
-    transform: [{ translateY: -12 }],
-    padding: 5,
-  },
-  eyeIconContainer: {
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eyeOpen: {
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eyeClosed: {
-    width: 24,
-    height: 24,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eyeOutline: {
-    width: 20,
-    height: 12,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 10,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  eyePupil: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  eyeSlash: {
-    position: "absolute",
-    width: 22,
-    height: 2,
-    backgroundColor: colors.primary,
-    transform: [{ rotate: "45deg" }],
-    top: 11,
-  },
-  loginButton: {
-    backgroundColor: "#4B00FF",
-    paddingVertical: 15,
-    borderRadius: 6,
-    alignItems: "center",
-    marginTop: 20,
-  },
-  loginText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  forgotText: {
-    color: "#4B00FF",
-    textAlign: "center",
-    marginVertical: 15,
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 10,
-  },
-  line: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#4B00FF",
-  },
-  or: {
-    marginHorizontal: 10,
-    color: "#4B00FF",
-  },
-  socialTitle: {
-    textAlign: "center",
-    color: "#4B00FF",
-    marginVertical: 10,
-  },
-  socialContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginVertical: 10,
-  },
-  socialIcon: {
-    width: 40,
-    height: 40,
-    marginHorizontal: 10,
-    borderRadius: 8,
-  },
-  signupText: {
-    textAlign: "center",
-    marginTop: 20,
-    color: "#4B00FF",
-  },
-  signupLink: {
-    color: "#4B00FF",
-    fontWeight: "bold",
-  },
-});

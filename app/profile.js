@@ -1,8 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as LocalAuthentication from "expo-local-authentication";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { styles } from './styles/profileStyle';
+import { translations } from "./translations/profileTranslation";
+
 import {
   ActivityIndicator,
   Alert,
@@ -17,90 +23,16 @@ import {
   View,
 } from "react-native";
 import colors from "../constants/colors";
-import { supabase } from "../lib/supabase";
 
-const translations = {
-  en: {
-    profile: "Profile",
-    accountSettings: "Account Settings",
-    securitySettings: "Security Settings",
-    languageSettings: "Language Settings",
-    profilePicture: "Profile Picture",
-    changePhoto: "Change Photo",
-    username: "Username",
-    email: "Email",
-    updateUsername: "Update Username",
-    language: "App Language",
-    english: "English",
-    nepali: "नेपाली (Nepali)",
-    biometric: "Biometric Authentication",
-    biometricDesc: "Use fingerprint or face recognition to unlock",
-    passkey: "Passkey Login",
-    passkeyDesc: "Enable passwordless authentication",
-    saveChanges: "Save Changes",
-    cancel: "Cancel",
-    logout: "Logout",
-    back: "Back",
-    success: "Success",
-    error: "Error",
-    usernameUpdated: "Username updated successfully!",
-    languageChanged: "Language changed successfully!",
-    biometricEnabled: "Biometric authentication enabled!",
-    biometricDisabled: "Biometric authentication disabled!",
-    passkeyEnabled: "Passkey login enabled!",
-    passkeyDisabled: "Passkey login disabled!",
-    photoUpdated: "Profile picture updated!",
-    biometricNotAvailable: "Biometric authentication not available on this device",
-    biometricNotEnrolled: "No biometric credentials enrolled. Please set up fingerprint or face recognition in device settings.",
-    selectSource: "Select Photo Source",
-    camera: "Take Photo",
-    gallery: "Choose from Gallery",
-    removePhoto: "Remove Photo",
-  },
-  np: {
-    profile: "प्रोफाइल",
-    accountSettings: "खाता सेटिङहरू",
-    securitySettings: "सुरक्षा सेटिङहरू",
-    languageSettings: "भाषा सेटिङहरू",
-    profilePicture: "प्रोफाइल तस्बिर",
-    changePhoto: "तस्बिर परिवर्तन गर्नुहोस्",
-    username: "प्रयोगकर्ता नाम",
-    email: "इमेल",
-    updateUsername: "प्रयोगकर्ता नाम अपडेट गर्नुहोस्",
-    language: "एप भाषा",
-    english: "English (अङ्ग्रेजी)",
-    nepali: "नेपाली",
-    biometric: "बायोमेट्रिक प्रमाणीकरण",
-    biometricDesc: "अनलक गर्न फिंगरप्रिन्ट वा अनुहार पहिचान प्रयोग गर्नुहोस्",
-    passkey: "पासकी लगइन",
-    passkeyDesc: "पासवर्ड रहित प्रमाणीकरण सक्षम गर्नुहोस्",
-    saveChanges: "परिवर्तनहरू सुरक्षित गर्नुहोस्",
-    cancel: "रद्द गर्नुहोस्",
-    logout: "लग आउट",
-    back: "पछाडि",
-    success: "सफल",
-    error: "त्रुटि",
-    usernameUpdated: "प्रयोगकर्ता नाम सफलतापूर्वक अपडेट गरियो!",
-    languageChanged: "भाषा सफलतापूर्वक परिवर्तन गरियो!",
-    biometricEnabled: "बायोमेट्रिक प्रमाणीकरण सक्षम गरियो!",
-    biometricDisabled: "बायोमेट्रिक प्रमाणीकरण असक्षम गरियो!",
-    passkeyEnabled: "पासकी लगइन सक्षम गरियो!",
-    passkeyDisabled: "पासकी लगइन असक्षम गरियो!",
-    photoUpdated: "प्रोफाइल तस्बिर अपडेट गरियो!",
-    biometricNotAvailable: "यो उपकरणमा बायोमेट्रिक प्रमाणीकरण उपलब्ध छैन",
-    biometricNotEnrolled: "कुनै बायोमेट्रिक प्रमाणहरू दर्ता गरिएको छैन। कृपया उपकरण सेटिङहरूमा फिंगरप्रिन्ट वा अनुहार पहिचान सेटअप गर्नुहोस्।",
-    selectSource: "तस्बिर स्रोत चयन गर्नुहोस्",
-    camera: "तस्बिर लिनुहोस्",
-    gallery: "ग्यालरीबाट छान्नुहोस्",
-    removePhoto: "तस्बिर हटाउनुहोस्",
-  },
-};
+
+
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [language, setLanguage] = useState("en");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false); // NEW: Track photo upload
   const [profileImage, setProfileImage] = useState(null);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -108,10 +40,9 @@ export default function ProfileScreen() {
   const [newUsername, setNewUsername] = useState("");
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showPhotoOptions, setShowPhotoOptions] = useState(false);
-  
+
   // Security Settings
   const [biometricEnabled, setBiometricEnabled] = useState(false);
-  const [passkeyEnabled, setPasskeyEnabled] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState(null);
 
@@ -127,20 +58,45 @@ export default function ProfileScreen() {
       const storedUser = await AsyncStorage.getItem("user");
       const savedLanguage = await AsyncStorage.getItem("appLanguage");
       const savedProfileImage = await AsyncStorage.getItem("profileImage");
+      const savedProfileImageUrl = await AsyncStorage.getItem("profileImageUrl");
       const savedBiometric = await AsyncStorage.getItem("biometricEnabled");
-      const savedPasskey = await AsyncStorage.getItem("passkeyEnabled");
 
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         setUser(userData);
-        setUsername(userData.user_metadata?.username || userData.email?.split("@")[0] || "User");
+
+        const displayName =
+          userData.name ||
+          userData.user_metadata?.username ||
+          userData.email?.split("@")[0] ||
+          "User";
+
+        setUsername(displayName);
         setEmail(userData.email || "");
+
+        // Handle Profile Image
+        const imageUrl = userData.picture;
+
+        if (imageUrl && imageUrl !== savedProfileImageUrl) {
+          const fileUri = `${FileSystem.documentDirectory}profile.jpg`;
+          const downloadResumable = FileSystem.createDownloadResumable(
+            imageUrl,
+            fileUri
+          );
+          await downloadResumable.downloadAsync();
+
+          await AsyncStorage.setItem("profileImage", fileUri);
+          await AsyncStorage.setItem("profileImageUrl", imageUrl);
+
+          setProfileImage(fileUri);
+        } else if (savedProfileImage) {
+          setProfileImage(savedProfileImage);
+        }
       }
 
       if (savedLanguage) setLanguage(savedLanguage);
-      if (savedProfileImage) setProfileImage(savedProfileImage);
       if (savedBiometric) setBiometricEnabled(savedBiometric === "true");
-      if (savedPasskey) setPasskeyEnabled(savedPasskey === "true");
+
     } catch (error) {
       console.error("Error loading user data:", error);
     }
@@ -151,9 +107,9 @@ export default function ProfileScreen() {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
       const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      
+
       setBiometricAvailable(compatible && enrolled);
-      
+
       if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType("Face Recognition");
       } else if (supportedTypes.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
@@ -168,13 +124,18 @@ export default function ProfileScreen() {
   };
 
   const handleImagePick = async (source) => {
+    setShowPhotoOptions(false); // Close modal immediately
+    setUploadingPhoto(true); // Show loading state
+    
     try {
       let result;
 
+      // 1️⃣ Pick new image
       if (source === "camera") {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(t.error, "Camera permission is required!");
+          Alert.alert("Error", "Camera permission is required!");
+          setUploadingPhoto(false);
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -186,7 +147,8 @@ export default function ProfileScreen() {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(t.error, "Gallery permission is required!");
+          Alert.alert("Error", "Gallery permission is required!");
+          setUploadingPhoto(false);
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -198,28 +160,118 @@ export default function ProfileScreen() {
       }
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        setProfileImage(imageUri);
-        await AsyncStorage.setItem("profileImage", imageUri);
-        Alert.alert(t.success, t.photoUpdated);
+        const newImageUri = result.assets[0].uri;
+
+        const user = await AsyncStorage.getItem("user");
+        const userData = JSON.parse(user);
+        const userId = userData.id || userData.user?.id;
+
+        if (!userId) {
+          console.warn("No userId found — skipping remote upload");
+          setUploadingPhoto(false);
+          return;
+        }
+
+        // 2️⃣ Remove old image locally
+        const oldLocalUri = await AsyncStorage.getItem("profileImage");
+        if (oldLocalUri) {
+          await FileSystem.deleteAsync(oldLocalUri).catch(() => { });
+        }
+
+        // 3️⃣ Remove old image from Supabase
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await supabase.storage.from("profile-pics").remove([`user_${userId}.jpg`]).catch(() => { });
+        }
+
+        // 4️⃣ Copy new image locally
+        const fileName = `profile_${Date.now()}.jpg`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.copyAsync({ from: newImageUri, to: fileUri });
+        await AsyncStorage.setItem("profileImage", fileUri);
+        setProfileImage(fileUri);
+
+        // 5️⃣ Upload new image to Supabase
+        const base64 = await FileSystem.readAsStringAsync(fileUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const fileData = decode(base64);
+
+        if (session) {
+          const { error: uploadError } = await supabase.storage
+            .from("profile-pics")
+            .upload(`user_${userId}.jpg`, fileData, {
+              contentType: "image/jpeg",
+              upsert: true,
+            });
+
+          if (uploadError) {
+            console.error("Upload failed:", uploadError.message);
+            Alert.alert("Error", "Failed to upload image.");
+            setUploadingPhoto(false);
+            return;
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from("profile-pics")
+            .getPublicUrl(`user_${userId}.jpg`);
+
+          const imageUrl = publicUrlData?.publicUrl;
+          if (imageUrl) {
+            await AsyncStorage.setItem("profileImageUrl", imageUrl);
+            await supabase.from("profiles").update({ picture: imageUrl }).eq("id", userId);
+            Alert.alert("Success", "Profile photo updated!");
+          }
+        }
       }
     } catch (error) {
       console.error("Error picking image:", error);
-      Alert.alert(t.error, "Failed to pick image");
+      Alert.alert("Error", "Failed to pick image.");
     } finally {
-      setShowPhotoOptions(false);
+      setUploadingPhoto(false);
     }
   };
 
+
   const handleRemovePhoto = async () => {
+    setShowPhotoOptions(false); // Close modal immediately
+    setUploadingPhoto(true); // Show loading state
+    
     try {
       setProfileImage(null);
       await AsyncStorage.removeItem("profileImage");
+      await AsyncStorage.removeItem("profileImageUrl");
+
+      const user = await AsyncStorage.getItem("user");
+      const userData = JSON.parse(user);
+      const userId = userData.id || userData.user?.id;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert("Not logged in", "Please log in to remove your profile photo.");
+        setUploadingPhoto(false);
+        return;
+      }
+
+      if (userId) {
+        const { error: deleteError } = await supabase
+          .storage
+          .from("profile-pics")
+          .remove([`user_${userId}.jpg`]);
+        if (deleteError) console.error("Error deleting from storage:", deleteError.message);
+
+        await supabase
+          .from("profiles")
+          .update({ picture: null })
+          .eq("id", userId);
+      }
+
       Alert.alert(t.success, t.photoUpdated);
     } catch (error) {
       console.error("Error removing photo:", error);
+      Alert.alert(t.error, "Failed to remove photo");
     } finally {
-      setShowPhotoOptions(false);
+      setUploadingPhoto(false);
     }
   };
 
@@ -231,18 +283,29 @@ export default function ProfileScreen() {
 
     setLoading(true);
     try {
-      // Update in Supabase
-      const { error } = await supabase.auth.updateUser({
-        data: { username: newUsername.trim() }
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Alert.alert("Not logged in", "Please log in to update your username.");
+        return;
+      }
 
-      if (error) throw error;
+      const userId = session.user.id;
 
-      // Update local state
-      setUsername(newUsername.trim());
-      const updatedUser = { ...user, user_metadata: { ...user.user_metadata, username: newUsername.trim() } };
-      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ name: newUsername.trim() })
+        .eq("id", userId);
+
+      if (updateError) throw updateError;
+
+      const updatedUser = {
+        ...user,
+        name: newUsername.trim(),
+      };
+
       setUser(updatedUser);
+      setUsername(newUsername.trim());
+      await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
 
       Alert.alert(t.success, t.usernameUpdated);
       setShowUsernameModal(false);
@@ -271,12 +334,12 @@ export default function ProfileScreen() {
     if (value && !biometricAvailable) {
       const compatible = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
-      
+
       if (!compatible) {
         Alert.alert(t.error, t.biometricNotAvailable);
         return;
       }
-      
+
       if (!enrolled) {
         Alert.alert(t.error, t.biometricNotEnrolled);
         return;
@@ -284,7 +347,6 @@ export default function ProfileScreen() {
     }
 
     if (value) {
-      // Authenticate before enabling
       try {
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage: "Authenticate to enable biometric login",
@@ -304,31 +366,6 @@ export default function ProfileScreen() {
       setBiometricEnabled(false);
       await AsyncStorage.setItem("biometricEnabled", "false");
       Alert.alert(t.success, t.biometricDisabled);
-    }
-  };
-
-  const handlePasskeyToggle = async (value) => {
-    // Simulate passkey setup (in production, use actual passkey API)
-    if (value) {
-      Alert.alert(
-        "Enable Passkey",
-        "This will enable passwordless login using passkeys. Continue?",
-        [
-          { text: t.cancel, style: "cancel" },
-          {
-            text: "Enable",
-            onPress: async () => {
-              setPasskeyEnabled(true);
-              await AsyncStorage.setItem("passkeyEnabled", "true");
-              Alert.alert(t.success, t.passkeyEnabled);
-            },
-          },
-        ]
-      );
-    } else {
-      setPasskeyEnabled(false);
-      await AsyncStorage.setItem("passkeyEnabled", "false");
-      Alert.alert(t.success, t.passkeyDisabled);
     }
   };
 
@@ -365,7 +402,10 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Picture Section */}
         <View style={styles.profileSection}>
-          <TouchableOpacity onPress={() => setShowPhotoOptions(true)}>
+          <TouchableOpacity 
+            onPress={() => !uploadingPhoto && setShowPhotoOptions(true)}
+            disabled={uploadingPhoto}
+          >
             <View style={styles.profileImageContainer}>
               {profileImage ? (
                 <Image source={{ uri: profileImage }} style={styles.profileImage} />
@@ -377,12 +417,18 @@ export default function ProfileScreen() {
                 </View>
               )}
               <View style={styles.cameraIconContainer}>
-                <Text style={styles.cameraIcon}>📷</Text>
+                {uploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.cameraIcon}>📷</Text>
+                )}
               </View>
             </View>
           </TouchableOpacity>
           <Text style={styles.profileName}>{username}</Text>
-          <Text style={styles.profileEmail}>{email}</Text>
+          <Text style={styles.profileEmail} numberOfLines={1} ellipsizeMode="tail">
+            {email}
+          </Text>
         </View>
 
         {/* Account Settings */}
@@ -409,9 +455,11 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Text style={styles.settingIcon}>📧</Text>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.settingLabel}>{t.email}</Text>
-                <Text style={styles.settingValue}>{email}</Text>
+                <Text style={styles.settingValue} numberOfLines={1} ellipsizeMode="tail">
+                  {email}
+                </Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -460,22 +508,6 @@ export default function ProfileScreen() {
               thumbColor={biometricEnabled ? colors.primary : "#f4f3f4"}
             />
           </View>
-
-          <View style={styles.settingItem}>
-            <View style={styles.settingLeft}>
-              <Text style={styles.settingIcon}>🔑</Text>
-              <View style={styles.settingTextContainer}>
-                <Text style={styles.settingLabel}>{t.passkey}</Text>
-                <Text style={styles.settingDescription}>{t.passkeyDesc}</Text>
-              </View>
-            </View>
-            <Switch
-              value={passkeyEnabled}
-              onValueChange={handlePasskeyToggle}
-              trackColor={{ false: "#d1d1d1", true: colors.primary + "60" }}
-              thumbColor={passkeyEnabled ? colors.primary : "#f4f3f4"}
-            />
-          </View>
         </View>
 
         {/* Logout Button */}
@@ -485,6 +517,35 @@ export default function ProfileScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Loading Overlay for Photo Upload */}
+      {uploadingPhoto && (
+        <View style={StyleSheet.absoluteFill}>
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <View style={{
+              backgroundColor: '#fff',
+              padding: 30,
+              borderRadius: 15,
+              alignItems: 'center',
+            }}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={{
+                marginTop: 15,
+                fontSize: 16,
+                color: colors.primary,
+                fontWeight: '600',
+              }}>
+                Updating photo...
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Photo Options Modal */}
       <Modal
@@ -498,14 +559,14 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>{t.selectSource}</Text>
 
             <TouchableOpacity
-              style={styles.modalButton}
+              style={[styles.modalButton, styles.modalButtonCompact]}
               onPress={() => handleImagePick("camera")}
             >
               <Text style={styles.modalButtonText}>📷 {t.camera}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.modalButton}
+              style={[styles.modalButton, styles.modalButtonCompact]}
               onPress={() => handleImagePick("gallery")}
             >
               <Text style={styles.modalButtonText}>🖼️ {t.gallery}</Text>
@@ -513,7 +574,7 @@ export default function ProfileScreen() {
 
             {profileImage && (
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonDanger]}
+                style={[styles.modalButton, styles.modalButtonDanger, styles.modalButtonCompact]}
                 onPress={handleRemovePhoto}
               >
                 <Text style={styles.modalButtonTextDanger}>🗑️ {t.removePhoto}</Text>
@@ -521,7 +582,7 @@ export default function ProfileScreen() {
             )}
 
             <TouchableOpacity
-              style={[styles.modalButton, styles.modalButtonCancel]}
+              style={[styles.modalButton, styles.modalButtonCancel, styles.modalButtonCompact]}
               onPress={() => setShowPhotoOptions(false)}
             >
               <Text style={styles.modalButtonTextCancel}>{t.cancel}</Text>
@@ -632,285 +693,3 @@ export default function ProfileScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: colors.primary,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  backButton: {
-    padding: 5,
-  },
-  backArrow: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#fff",
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  placeholder: {
-    width: 38,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  profileSection: {
-    alignItems: "center",
-    paddingVertical: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  profileImageContainer: {
-    position: "relative",
-    marginBottom: 15,
-  },
-  profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: colors.primary,
-  },
-  profilePlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.primary,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 4,
-    borderColor: colors.primary,
-  },
-  profilePlaceholderText: {
-    fontSize: 48,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  cameraIconContainer: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 3,
-    borderColor: colors.primary,
-  },
-  cameraIcon: {
-    fontSize: 20,
-  },
-  profileName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 5,
-  },
-  profileEmail: {
-    fontSize: 16,
-    color: "#666",
-  },
-  section: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 15,
-  },
-  settingItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "#f8f8f8",
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  settingLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  settingIcon: {
-    fontSize: 24,
-    marginRight: 15,
-  },
-  settingTextContainer: {
-    flex: 1,
-  },
-  settingLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.primary,
-    marginBottom: 2,
-  },
-  settingValue: {
-    fontSize: 14,
-    color: "#666",
-  },
-  settingDescription: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 2,
-  },
-  biometricType: {
-    fontSize: 11,
-    color: colors.primary,
-    marginTop: 2,
-    fontStyle: "italic",
-  },
-  settingArrow: {
-    fontSize: 24,
-    color: colors.primary,
-    marginLeft: 10,
-  },
-  logoutButton: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    backgroundColor: "#FF3B30",
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  logoutText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 25,
-    paddingBottom: 40,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginBottom: 20,
-    textAlign: "center",
-  },
-  modalButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 15,
-    borderRadius: 12,
-    marginBottom: 12,
-    alignItems: "center",
-  },
-  modalButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalButtonDanger: {
-    backgroundColor: "#FF3B30",
-  },
-  modalButtonTextDanger: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalButtonCancel: {
-    backgroundColor: "#f0f0f0",
-  },
-  modalButtonTextCancel: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalInput: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.primary,
-    marginBottom: 20,
-  },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  modalActionButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: "center",
-    marginHorizontal: 5,
-  },
-  modalActionButtonCancel: {
-    backgroundColor: "#f0f0f0",
-  },
-  modalActionButtonSave: {
-    backgroundColor: colors.primary,
-  },
-  modalActionTextCancel: {
-    color: colors.primary,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  modalActionTextSave: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  languageOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  languageOptionActive: {
-    backgroundColor: colors.primary + "10",
-    borderColor: colors.primary,
-  },
-  languageOptionText: {
-    fontSize: 16,
-    color: "#666",
-    fontWeight: "500",
-  },
-  languageOptionTextActive: {
-    color: colors.primary,
-    fontWeight: "700",
-  },
-  checkmark: {
-    fontSize: 20,
-    color: colors.primary,
-    fontWeight: "bold",
-  },
-});

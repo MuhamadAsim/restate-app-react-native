@@ -1,16 +1,16 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
-  ActivityIndicator,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import colors from "../constants/colors";
 import { supabase } from "../lib/supabase";
 
@@ -63,63 +63,67 @@ export default function SignupScreen() {
 
   const t = translations[language];
 
-  const handleSignup = async () => {
-    if (!name || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+
+const handleSignup = async () => {
+  if (!name || !email || !password) {
+    Alert.alert("Error", "Please fill in all fields");
+    return;
+  }
+
+  setLoading(true);
+  const cleanEmail = email.trim();
+
+  try {
+    // 1️⃣ Check if user already exists
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password,
+    });
+
+    if (!loginError) {
+      Alert.alert(
+        "Email Exists",
+        "This email is already registered. Please log in instead."
+      );
+      setLoading(false);
+      router.push("/login");
       return;
     }
 
-    setLoading(true);
-    const cleanEmail = email.trim();
+    // 2️⃣ Sign up new user with redirect for email confirmation
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: {
+        data: { name },
+        emailRedirectTo: "myapp://login", // 👈 redirect to login after verification
+      },
+    });
 
-    try {
-      // 1️⃣ Try sign-in first to detect existing account
-      const { data: loginTry, error: loginError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-
-      if (!loginError) {
-        Alert.alert("Email Exists", "This email is already registered. Please log in instead.");
-        setLoading(false);
-        router.push("/login");
-        return;
-      }
-
-      // 2️⃣ Proceed with signup
-      const { data, error } = await supabase.auth.signUp({
-        email: cleanEmail,
-        password,
-        options: { data: { name } },
-      });
-
-      if (error) {
-        if (error.message.includes("invalid")) {
-          Alert.alert("Invalid Email", "Please enter a valid email address.");
-        } else {
-          Alert.alert("Signup Failed", error.message);
-        }
-        return;
-      }
-
-      // 3️⃣ Handle verification case
-      if (data.user && !data.session) {
-        Alert.alert(
-          "Check your email",
-          "A confirmation email has been sent. Please verify your email before logging in."
-        );
-        router.push("/login");
-      } else {
-        Alert.alert("Success", "✅ Account created successfully!");
-        router.push("/login");
-      }
-    } catch (err) {
-      console.error("⚠️ Unexpected Error:", err);
-      Alert.alert("Error", "Something went wrong. Please try again.");
-    } finally {
-      setLoading(false);
+    if (error) {
+      Alert.alert("Signup Failed", error.message);
+      return;
     }
-  };
+
+    // 3️⃣ Handle verification or instant session
+    if (data.user && !data.session) {
+      Alert.alert(
+        "Check your email",
+        "A confirmation email has been sent. Please verify your email before logging in."
+      );
+      router.push("/login");
+    } else {
+      Alert.alert("Success", "✅ Account created successfully!");
+      router.push("/login");
+    }
+  } catch (err) {
+    console.error("⚠️ Unexpected Error:", err);
+    Alert.alert("Error", "Something went wrong. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <View style={styles.container}>
@@ -236,7 +240,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingHorizontal: 25,
-    paddingTop: 20,
+    paddingTop: 40,
   },
   backButton: {
     marginBottom: 20,
