@@ -9,7 +9,7 @@ export default function LanguageScreen() {
   const [selectedLang, setSelectedLang] = useState(null);
 
   const languages = [
-    { code: "en", name: "English", flag: require("../assets/flags/uk.jpeg") },
+    { code: "en", name: "English", flag: require("../assets/flags/uk.png") },
     { code: "np", name: "नेपाली (Nepali)", flag: require("../assets/flags/nepal.png") },
   ];
 
