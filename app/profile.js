@@ -233,48 +233,74 @@ export default function ProfileScreen() {
   };
 
 
-  const handleRemovePhoto = async () => {
-    setShowPhotoOptions(false); // Close modal immediately
-    setUploadingPhoto(true); // Show loading state
+ const handleRemovePhoto = async () => {
+  setShowPhotoOptions(false); // Close modal immediately
+  setUploadingPhoto(true); // Show loading state
+  
+  try {
+    // 1️⃣ Get the local file URI before removing from AsyncStorage
+    const localImageUri = await AsyncStorage.getItem("profileImage");
     
-    try {
-      setProfileImage(null);
-      await AsyncStorage.removeItem("profileImage");
-      await AsyncStorage.removeItem("profileImageUrl");
-
-      const user = await AsyncStorage.getItem("user");
-      const userData = JSON.parse(user);
-      const userId = userData.id || userData.user?.id;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        Alert.alert("Not logged in", "Please log in to remove your profile photo.");
-        setUploadingPhoto(false);
-        return;
+    // 2️⃣ Delete local file from device storage
+    if (localImageUri) {
+      try {
+        await FileSystem.deleteAsync(localImageUri);
+        console.log("Local file deleted successfully");
+      } catch (fileError) {
+        console.error("Error deleting local file:", fileError);
       }
-
-      if (userId) {
-        const { error: deleteError } = await supabase
-          .storage
-          .from("profile-pics")
-          .remove([`user_${userId}.jpg`]);
-        if (deleteError) console.error("Error deleting from storage:", deleteError.message);
-
-        await supabase
-          .from("profiles")
-          .update({ picture: null })
-          .eq("id", userId);
-      }
-
-      Alert.alert(t.success, t.photoUpdated);
-    } catch (error) {
-      console.error("Error removing photo:", error);
-      Alert.alert(t.error, "Failed to remove photo");
-    } finally {
-      setUploadingPhoto(false);
     }
-  };
+    
+    // 3️⃣ Remove from AsyncStorage
+    await AsyncStorage.removeItem("profileImage");
+    await AsyncStorage.removeItem("profileImageUrl");
+    
+    // 4️⃣ Update UI state
+    setProfileImage(null);
 
+    // 5️⃣ Get user data for backend deletion
+    const user = await AsyncStorage.getItem("user");
+    const userData = JSON.parse(user);
+    const userId = userData.id || userData.user?.id;
+
+    // 6️⃣ Delete from Supabase
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      Alert.alert("Not logged in", "Please log in to remove your profile photo.");
+      setUploadingPhoto(false);
+      return;
+    }
+
+    if (userId) {
+      // Delete from storage bucket
+      const { error: deleteError } = await supabase
+        .storage
+        .from("profile-pics")
+        .remove([`user_${userId}.jpg`]);
+      
+      if (deleteError) {
+        console.error("Error deleting from storage:", deleteError.message);
+      }
+
+      // Update profile table
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ picture: null })
+        .eq("id", userId);
+      
+      if (updateError) {
+        console.error("Error updating profile:", updateError.message);
+      }
+    }
+
+    Alert.alert(t.success, t.photoUpdated);
+  } catch (error) {
+    console.error("Error removing photo:", error);
+    Alert.alert(t.error, "Failed to remove photo");
+  } finally {
+    setUploadingPhoto(false);
+  }
+};
   const handleUpdateUsername = async () => {
     if (!newUsername.trim()) {
       Alert.alert(t.error, "Username cannot be empty");

@@ -65,7 +65,7 @@ export default function LoginScreen() {
       try {
         const storedUser = await AsyncStorage.getItem("user");
         if (storedUser) {
-          router.replace("/DashboardScreen");
+          router.replace("/Dashboard");
         }
       } catch (err) {
         console.error("Error checking user:", err);
@@ -127,7 +127,7 @@ export default function LoginScreen() {
 
       // 5️⃣ Success feedback & redirect
       Alert.alert("Success", t.success);
-      router.replace("/DashboardScreen");
+      router.replace("/Dashboard");
 
     } catch (err) {
       console.error("⚠️ Unexpected Error:", err);

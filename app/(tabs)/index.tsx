@@ -6,9 +6,9 @@ export default function IndexScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to Language screen on app start
+    // Redirect to Onboarding screen on app start
     const timer = setTimeout(() => {
-      router.replace("/language"); 
+      router.replace("/onboarding"); 
     }, 1000); 
     return () => clearTimeout(timer);
   }, []);
