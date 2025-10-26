@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router"; // ✅ Use expo-router hooks
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +17,6 @@ import {
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import NetInfo from "@react-native-community/netinfo";
 import { supabase } from "../lib/supabase";
 
 
@@ -24,7 +24,7 @@ import { supabase } from "../lib/supabase";
 const DocumentsScreen = () => {
   const router = useRouter();
   const params = useLocalSearchParams(); // ✅ Get params from expo-router
-  
+
   const [documents, setDocuments] = useState([]);
   const [filteredDocuments, setFilteredDocuments] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
@@ -57,173 +57,173 @@ const DocumentsScreen = () => {
 
 
 
-const loadDocuments = useCallback(async () => {
-  try {
-    console.log("🔵 [START] Loading documents...");
-    setLoading(true);
-    setSyncStatus("Loading local documents...");
+  const loadDocuments = useCallback(async () => {
+    try {
+      console.log("🔵 [START] Loading documents...");
+      setLoading(true);
+      setSyncStatus("Loading local documents...");
 
-    // 🧠 Get logged-in user data
-    console.log("👤 [USER] Fetching user data...");
-    const savedUserData = await AsyncStorage.getItem("savedUserData");
-    const user = savedUserData ? JSON.parse(savedUserData) : null;
-    const userId = user?.id;
-    const userEmail = user?.email;
+      // 🧠 Get logged-in user data
+      console.log("👤 [USER] Fetching user data...");
+      const savedUserData = await AsyncStorage.getItem("savedUserData");
+      const user = savedUserData ? JSON.parse(savedUserData) : null;
+      const userId = user?.id;
+      const userEmail = user?.email;
 
-    console.log("👤 [USER DATA]", { userId, userEmail });
+      console.log("👤 [USER DATA]", { userId, userEmail });
 
-    if (!userId || !userEmail) {
-      console.log("❌ [ERROR] User not logged in");
-      Alert.alert("Error", "User not logged in.");
-      setLoading(false);
-      return;
-    }
+      if (!userId || !userEmail) {
+        console.log("❌ [ERROR] User not logged in");
+        Alert.alert("Error", "User not logged in.");
+        setLoading(false);
+        return;
+      }
 
-    // 🗂️ Load local docs first
-    const storageKey = `userDocuments_${userEmail}`;
-    console.log("📦 [STORAGE] Loading from key:", storageKey);
+      // 🗂️ Load local docs first
+      const storageKey = `userDocuments_${userEmail}`;
+      console.log("📦 [STORAGE] Loading from key:", storageKey);
 
-    const stored = await AsyncStorage.getItem(storageKey);
-    const localDocs = stored ? JSON.parse(stored) : [];
+      const stored = await AsyncStorage.getItem(storageKey);
+      const localDocs = stored ? JSON.parse(stored) : [];
 
-    console.log(`📦 [LOCAL DOCS] Found ${localDocs.length} local documents`);
-    console.log("📄 [LOCAL DOCS SAMPLE]", localDocs.slice(0, 2)); // Show first 2 docs
+      console.log(`📦 [LOCAL DOCS] Found ${localDocs.length} local documents`);
+      console.log("📄 [LOCAL DOCS SAMPLE]", localDocs.slice(0, 2)); // Show first 2 docs
 
-    // Show local docs immediately
-    setDocuments(localDocs);
-    applyFilters(localDocs);
+      // Show local docs immediately
+      setDocuments(localDocs);
+      applyFilters(localDocs);
 
-    // 🌐 Check Internet connection
-    console.log("🌐 [NETWORK] Checking connection...");
-    const netState = await NetInfo.fetch();
-    const isConnected = netState.isConnected;
-    console.log(`🌐 [NETWORK] Connected: ${isConnected}`);
+      // 🌐 Check Internet connection
+      console.log("🌐 [NETWORK] Checking connection...");
+      const netState = await NetInfo.fetch();
+      const isConnected = netState.isConnected;
+      console.log(`🌐 [NETWORK] Connected: ${isConnected}`);
 
-    if (!isConnected) {
-      console.log("⚠️ [OFFLINE] No internet - showing local docs only");
-      setSyncStatus("Offline mode — showing local documents");
-      setLoading(false);
-      return;
-    }
+      if (!isConnected) {
+        console.log("⚠️ [OFFLINE] No internet - showing local docs only");
+        setSyncStatus("Offline mode — showing local documents");
+        setLoading(false);
+        return;
+      }
 
-    setSyncStatus("Fetching documents from cloud...");
+      setSyncStatus("Fetching documents from cloud...");
 
-    // 🔐 Check Supabase session
-    console.log("🔐 [AUTH] Checking session...");
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // 🔐 Check Supabase session
+      console.log("🔐 [AUTH] Checking session...");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (sessionError || !session) {
-      console.log("⚠️ [AUTH] No session - using local docs only", sessionError);
-      setSyncStatus("Not authenticated - showing local documents");
-      setLoading(false);
-      return;
-    }
+      if (sessionError || !session) {
+        console.log("⚠️ [AUTH] No session - using local docs only", sessionError);
+        setSyncStatus("Not authenticated - showing local documents");
+        setLoading(false);
+        return;
+      }
 
-    console.log("✅ [AUTH] Session active");
+      console.log("✅ [AUTH] Session active");
 
-    // ☁️ Fetch from Supabase
-    console.log("☁️ [CLOUD] Fetching documents from Supabase...");
-    const { data: cloudDocs, error } = await supabase
-      .from("documents")
-      .select("*")
-      .eq("user_id", userId)
-      .order("uploaded_at", { ascending: false }); // ✅ use uploaded_at instead of created_at
+      // ☁️ Fetch from Supabase
+      console.log("☁️ [CLOUD] Fetching documents from Supabase...");
+      const { data: cloudDocs, error } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("user_id", userId)
+        .order("uploaded_at", { ascending: false }); // ✅ use uploaded_at instead of created_at
 
-    if (error) {
-      console.error("❌ [CLOUD ERROR]", error);
-      setSyncStatus("Cloud sync failed - showing local documents");
-      setLoading(false);
-      return;
-    }
+      if (error) {
+        console.error("❌ [CLOUD ERROR]", error);
+        setSyncStatus("Cloud sync failed - showing local documents");
+        setLoading(false);
+        return;
+      }
 
-    console.log(`☁️ [CLOUD DOCS] Found ${cloudDocs?.length || 0} cloud documents`);
-    console.log("📄 [CLOUD DOCS SAMPLE]", cloudDocs?.slice(0, 2));
+      console.log(`☁️ [CLOUD DOCS] Found ${cloudDocs?.length || 0} cloud documents`);
+      console.log("📄 [CLOUD DOCS SAMPLE]", cloudDocs?.slice(0, 2));
 
-    if (!cloudDocs || cloudDocs.length === 0) {
-      console.log("ℹ️ [CLOUD] No cloud documents found");
-      setSyncStatus("No cloud documents found");
-      setLoading(false);
-      return;
-    }
+      if (!cloudDocs || cloudDocs.length === 0) {
+        console.log("ℹ️ [CLOUD] No cloud documents found");
+        setSyncStatus("No cloud documents found");
+        setLoading(false);
+        return;
+      }
 
-    // 🧩 Map cloud documents to local format
-    console.log("🔄 [MAPPING] Converting cloud docs to local format...");
-    const mappedCloudDocs = cloudDocs.map((d) => {
-      const uploadDate = new Date(d.uploaded_at);
-      return {
-        id: d.id,
-        cloudId: d.id,
-        userEmail,
-        name: d.name,
-        originalFileName: d.file_name,
-        category: d.category,
-        categoryIcon: getCategoryIcon(d.category),
-        tag: d.tag,
-        tagIcon: getTagIcon(d.tag),
-        fileUri: d.file_url,
-        fileUrl: d.file_url,
-        fileName: d.file_name,
-        mimeType: d.mime_type,
-        fileSize: d.file_size,
-        uploadedAt: d.uploaded_at,
-        uploadedDate: uploadDate.toLocaleDateString(),
-        uploadedTime: uploadDate.toLocaleTimeString(),
-        uploadedToCloud: true,
-        cloudSynced: true,
-      };
-    });
+      // 🧩 Map cloud documents to local format
+      console.log("🔄 [MAPPING] Converting cloud docs to local format...");
+      const mappedCloudDocs = cloudDocs.map((d) => {
+        const uploadDate = new Date(d.uploaded_at);
+        return {
+          id: d.id,
+          cloudId: d.id,
+          userEmail,
+          name: d.name,
+          originalFileName: d.file_name,
+          category: d.category,
+          categoryIcon: getCategoryIcon(d.category),
+          tag: d.tag,
+          tagIcon: getTagIcon(d.tag),
+          fileUri: d.file_url,
+          fileUrl: d.file_url,
+          fileName: d.file_name,
+          mimeType: d.mime_type,
+          fileSize: d.file_size,
+          uploadedAt: d.uploaded_at,
+          uploadedDate: uploadDate.toLocaleDateString(),
+          uploadedTime: uploadDate.toLocaleTimeString(),
+          uploadedToCloud: true,
+          cloudSynced: true,
+        };
+      });
 
-    console.log("✅ [MAPPING] Mapped cloud docs:", mappedCloudDocs.length);
+      console.log("✅ [MAPPING] Mapped cloud docs:", mappedCloudDocs.length);
 
-    // 🧠 Smart duplicate removal using name + size + tag
-    const mergedDocsMap = new Map();
+      // 🧠 Smart duplicate removal using name + size + tag
+      const mergedDocsMap = new Map();
 
-    // Step 1: Add cloud docs first (priority)
-    for (const doc of mappedCloudDocs) {
-      const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
-      mergedDocsMap.set(key, doc);
-    }
-
-    // Step 2: Add local docs only if not duplicated
-    for (const doc of localDocs) {
-      const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
-      if (!mergedDocsMap.has(key)) {
+      // Step 1: Add cloud docs first (priority)
+      for (const doc of mappedCloudDocs) {
+        const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
         mergedDocsMap.set(key, doc);
       }
+
+      // Step 2: Add local docs only if not duplicated
+      for (const doc of localDocs) {
+        const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
+        if (!mergedDocsMap.has(key)) {
+          mergedDocsMap.set(key, doc);
+        }
+      }
+
+      // Step 3: Convert back to array
+      const mergedDocs = Array.from(mergedDocsMap.values());
+
+      console.log(`✅ [MERGE] Total unique documents: ${mergedDocs.length}`);
+      console.log("📊 [BREAKDOWN]", {
+        cloudDocs: mappedCloudDocs.length,
+        localOnly: localDocs.length - (mergedDocs.length - mappedCloudDocs.length),
+        total: mergedDocs.length,
+      });
+
+      // 💾 Save merged docs to local storage
+      console.log("💾 [SAVE] Saving merged docs to AsyncStorage...");
+      await AsyncStorage.setItem(storageKey, JSON.stringify(mergedDocs));
+      console.log("✅ [SAVE] Saved successfully");
+
+      // 🖥️ Update UI
+      setDocuments(mergedDocs);
+      applyFilters(mergedDocs);
+
+      setSyncStatus(`Synced ${cloudDocs.length} cloud documents`);
+      console.log("🎉 [SUCCESS] Documents loaded and synced");
+
+      setTimeout(() => setSyncStatus(""), 2000);
+    } catch (error) {
+      console.error("❌ [CRITICAL ERROR] Loading documents failed:", error);
+      console.error("Stack:", error.stack);
+      Alert.alert("Error", `Failed to load documents: ${error.message}`);
+    } finally {
+      setLoading(false);
+      console.log("🏁 [END] loadDocuments completed");
     }
-
-    // Step 3: Convert back to array
-    const mergedDocs = Array.from(mergedDocsMap.values());
-
-    console.log(`✅ [MERGE] Total unique documents: ${mergedDocs.length}`);
-    console.log("📊 [BREAKDOWN]", {
-      cloudDocs: mappedCloudDocs.length,
-      localOnly: localDocs.length - (mergedDocs.length - mappedCloudDocs.length),
-      total: mergedDocs.length,
-    });
-
-    // 💾 Save merged docs to local storage
-    console.log("💾 [SAVE] Saving merged docs to AsyncStorage...");
-    await AsyncStorage.setItem(storageKey, JSON.stringify(mergedDocs));
-    console.log("✅ [SAVE] Saved successfully");
-
-    // 🖥️ Update UI
-    setDocuments(mergedDocs);
-    applyFilters(mergedDocs);
-
-    setSyncStatus(`Synced ${cloudDocs.length} cloud documents`);
-    console.log("🎉 [SUCCESS] Documents loaded and synced");
-
-    setTimeout(() => setSyncStatus(""), 2000);
-  } catch (error) {
-    console.error("❌ [CRITICAL ERROR] Loading documents failed:", error);
-    console.error("Stack:", error.stack);
-    Alert.alert("Error", `Failed to load documents: ${error.message}`);
-  } finally {
-    setLoading(false);
-    console.log("🏁 [END] loadDocuments completed");
-  }
-}, [filterTag, filterCategory, filterType]);
+  }, [filterTag, filterCategory, filterType]);
 
 
 
@@ -239,24 +239,24 @@ const loadDocuments = useCallback(async () => {
 
 
 
-// Helper function to get category icon
-const getCategoryIcon = (category) => {
-  const icons = {
-    "Government services": "📋",
-    "Banking & Finance": "💰",
-    "Education & Learning": "🏫",
-    "Transport": "🚗",
-    "Health & Insurance": "🏥",
-    "Other Documents": "📄",
+  // Helper function to get category icon
+  const getCategoryIcon = (category) => {
+    const icons = {
+      "Government services": "📋",
+      "Banking & Finance": "💰",
+      "Education & Learning": "🏫",
+      "Transport": "🚗",
+      "Health & Insurance": "🏥",
+      "Other Documents": "📄",
+    };
+    return icons[category] || "📄";
   };
-  return icons[category] || "📄";
-};
 
-// Helper function to get tag icon
-const getTagIcon = (tag) => {
-  // Return empty string if no tag, as your quickTags don't have icons
-  return "";
-};
+  // Helper function to get tag icon
+  const getTagIcon = (tag) => {
+    // Return empty string if no tag, as your quickTags don't have icons
+    return "";
+  };
 
 
 
@@ -281,7 +281,7 @@ const getTagIcon = (tag) => {
     setFilteredDocuments(filtered);
   };
 
- 
+
 
 
 
@@ -313,7 +313,7 @@ const getTagIcon = (tag) => {
   // Get icon based on tag
   const getDocIcon = (tag, tagIcon) => {
     if (tagIcon) return tagIcon;
-    
+
     const icons = {
       "National Id": "card-outline",
       "Driving Licence": "car-outline",
@@ -340,42 +340,49 @@ const getTagIcon = (tag) => {
     return colors[category] || "#6B7280";
   };
 
-  // Open document
-  const handleView = (doc) => {
-    Alert.alert(
-      "Open Document",
-      `Do you want to view "${doc.name}"?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Open",
-          onPress: () => {
-            const url = doc.cloudUrl || doc.fileUri;
-            Linking.openURL(url).catch(() => {
-              Alert.alert("Error", "Cannot open this document");
-            });
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+  
 
-  // Share cloud link
-  const handleShare = async (doc) => {
-    try {
-      const shareUrl = doc.cloudUrl || doc.fileUri;
-      const tagInfo = doc.tag ? `\n🏷️ Tag: ${doc.tag}` : "";
-      await Share.share({
-        message: `📄 ${doc.name}\n📁 Category: ${doc.category}${tagInfo}\n📅 Uploaded: ${doc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
-      });
-    } catch (error) {
-      Alert.alert("Error", "Unable to share document link.");
-    }
-  };
+ 
+// Update handleView to use fileUrl
+const handleView = (doc) => {
+  Alert.alert(
+    "Open Document",
+    `Do you want to view "${doc.name}"?`,
+    [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Open",
+        onPress: () => {
+          const url = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
+          Linking.openURL(url).catch(() => {
+            Alert.alert("Error", "Cannot open this document");
+          });
+        },
+      },
+    ],
+    { cancelable: true }
+  );
+};
+
+
+
+ // Update handleShare to use fileUrl
+const handleShare = async (doc) => {
+  try {
+    const shareUrl = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
+    const tagInfo = doc.tag ? `\n🏷️ Tag: ${doc.tag}` : "";
+    await Share.share({
+      message: `📄 ${doc.name}\n📁 Category: ${doc.category}${tagInfo}\n📅 Uploaded: ${doc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
+      title: `Share ${doc.name}`, // Added title for better UX
+    });
+  } catch (error) {
+    console.error("Share error:", error);
+    Alert.alert("Error", "Unable to share document link.");
+  }
+};
 
   // Show QR Code
   const handleQR = (doc) => {
@@ -388,133 +395,188 @@ const getTagIcon = (tag) => {
 
 
 
+  const handleDelete = (doc) => {
+    Alert.alert(
+      "Delete Document",
+      `Are you sure you want to delete "${doc.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              console.log("🧩 Starting deletion for:", doc.name, doc);
 
+              const now = new Date();
 
-const handleDelete = (doc) => {
-  Alert.alert(
-    "Delete Document",
-    `Are you sure you want to delete "${doc.name}"?`,
-    [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const now = new Date();
+              // 🧠 Load user
+              const savedUserData = await AsyncStorage.getItem("savedUserData");
+              const user = savedUserData ? JSON.parse(savedUserData) : null;
+              const userEmail = user?.email || "unknown_user";
+              console.log("👤 User email:", userEmail);
 
-            // 🧠 Get saved user data (to delete per-user)
-            const savedUserData = await AsyncStorage.getItem("savedUserData");
-            const user = savedUserData ? JSON.parse(savedUserData) : null;
-            const userEmail = user?.email || "unknown_user";
+              const storageKey = `userDocuments_${userEmail}`;
+              const stored = await AsyncStorage.getItem(storageKey);
+              const existingDocs = stored ? JSON.parse(stored) : [];
 
-            const storageKey = `userDocuments_${userEmail}`;
-            const stored = await AsyncStorage.getItem(storageKey);
-            const existingDocs = stored ? JSON.parse(stored) : [];
+              console.log("📦 Existing local docs:", existingDocs.length);
 
-            // 🗑️ Remove from local
-            const updatedDocs = existingDocs.filter((d) => d.id !== doc.id);
-            await AsyncStorage.setItem(storageKey, JSON.stringify(updatedDocs));
+              // 🗑️ Remove locally
+              const updatedDocs = existingDocs.filter((d) => d.id !== doc.id);
+              await AsyncStorage.setItem(storageKey, JSON.stringify(updatedDocs));
+              console.log("🗑️ Removed from local AsyncStorage");
 
-            // 🌐 Check Internet
-            const netState = await NetInfo.fetch();
-            const isOnline = netState.isConnected;
+              // 🌐 Check Internet
+              const netState = await NetInfo.fetch();
+              const isOnline = netState.isConnected;
+              console.log("🌐 Internet available:", isOnline);
 
-            if (isOnline) {
-              // 🔥 Try deleting from Supabase
-              const { error } = await supabase.storage
-                .from("documents")
-                .remove([`${userEmail}/${doc.fileName}`]); // path structure used on upload
+              if (isOnline) {
+                // Delete from Supabase storage
+                const storagePath = `${userEmail}/${doc.fileName}`;
+                console.log("🚀 Attempting Supabase delete for:", storagePath);
 
-              if (error) throw error;
-            } else {
-              // 🚨 Store pending deletion if offline
-              const pendingKey = "pendingDeletions";
-              const pendingStored = await AsyncStorage.getItem(pendingKey);
-              const pendingDeletions = pendingStored
-                ? JSON.parse(pendingStored)
-                : [];
+                const { error: storageError } = await supabase.storage
+                  .from("documents")
+                  .remove([storagePath]);
 
-              pendingDeletions.push({
+                if (storageError) {
+                  console.log("⚠️ Storage delete error:", storageError.message);
+                } else {
+                  console.log(`✅ Deleted ${doc.fileName} from Supabase Storage`);
+                }
+
+                // Delete from Supabase DB
+                console.log("🧾 Deleting from Supabase DB table: documents");
+                const { error: dbError } = await supabase
+                  .from("documents")
+                  .delete()
+                  .eq("id", doc.id);
+
+                if (dbError) {
+                  console.log("⚠️ Database delete error:", dbError.message);
+                } else {
+                  console.log("✅ Deleted record from Supabase DB");
+                }
+              } else {
+                // 🚨 Offline — store pending deletion
+                console.log("📴 Offline, storing pending deletion info");
+
+                const pendingKey = "pendingDeletions";
+                const pendingStored = await AsyncStorage.getItem(pendingKey);
+                const pendingDeletions = pendingStored
+                  ? JSON.parse(pendingStored)
+                  : [];
+
+                pendingDeletions.push({
+                  userEmail,
+                  fileName: doc.fileName,
+                  docId: doc.id,
+                  filePath: `${userEmail}/${doc.fileName}`,
+                  addedAt: now.toISOString(),
+                });
+
+                await AsyncStorage.setItem(
+                  pendingKey,
+                  JSON.stringify(pendingDeletions)
+                );
+
+                console.log("💾 Saved pending deletion:", doc.fileName);
+              }
+
+              // 📝 Add log
+              const logEntry = {
+                id: Date.now(),
                 userEmail,
-                fileName: doc.fileName,
-                docId: doc.id,
-                filePath: `${userEmail}/${doc.fileName}`,
-                addedAt: now.toISOString(),
-              });
+                action: "DOCUMENT_DELETED",
+                timestamp: now.toISOString(),
+                date: now.toLocaleDateString(),
+                time: now.toLocaleTimeString(),
+                documentName: doc.name,
+                documentId: doc.id,
+                category: doc.category,
+                tag: doc.tag || "None",
+                details: `Document "${doc.name}" deleted from ${doc.category}`,
+              };
 
+              const storedLogs = await AsyncStorage.getItem("documentLogs");
+              const existingLogs = storedLogs ? JSON.parse(storedLogs) : [];
               await AsyncStorage.setItem(
-                pendingKey,
-                JSON.stringify(pendingDeletions)
+                "documentLogs",
+                JSON.stringify([logEntry, ...existingLogs])
               );
+
+              console.log("🧾 Log entry saved:", logEntry);
+
+              setDocuments(updatedDocs);
+              applyFilters(updatedDocs);
+              Alert.alert("✅ Success", "Document deleted successfully");
+            } catch (error) {
+              console.log("❌ Delete error:", error);
+              Alert.alert("❌ Error", "Failed to delete document");
             }
-
-            // 📝 Log deletion
-            const logEntry = {
-              id: Date.now(),
-              userEmail,
-              action: "DOCUMENT_DELETED",
-              timestamp: now.toISOString(),
-              date: now.toLocaleDateString(),
-              time: now.toLocaleTimeString(),
-              documentName: doc.name,
-              documentId: doc.id,
-              category: doc.category,
-              tag: doc.tag || "None",
-              details: `Document "${doc.name}" deleted from ${doc.category}`,
-            };
-
-            const storedLogs = await AsyncStorage.getItem("documentLogs");
-            const existingLogs = storedLogs ? JSON.parse(storedLogs) : [];
-            await AsyncStorage.setItem(
-              "documentLogs",
-              JSON.stringify([logEntry, ...existingLogs])
-            );
-
-            setDocuments(updatedDocs);
-            applyFilters(updatedDocs);
-            Alert.alert("✅ Success", "Document deleted successfully");
-          } catch (error) {
-            console.log("Delete error:", error);
-            Alert.alert("❌ Error", "Failed to delete document");
-          }
+          },
         },
-      },
-    ]
-  );
-};
+      ]
+    );
+  };
 
 
 
 
 
 
-useEffect(() => {
+
+
+
+
+
+  // 🧩 Function to sync pending deletions when online
   const syncPendingDeletions = async () => {
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) return;
+    try {
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) return;
 
-    const pendingKey = "pendingDeletions";
-    const stored = await AsyncStorage.getItem(pendingKey);
-    const pending = stored ? JSON.parse(stored) : [];
+      const pendingKey = "pendingDeletions";
+      const pendingStored = await AsyncStorage.getItem(pendingKey);
+      const pendingDeletions = pendingStored ? JSON.parse(pendingStored) : [];
 
-    if (pending.length > 0) {
-      for (const item of pending) {
-        const { error } = await supabase.storage
-          .from("documents")
-          .remove([item.filePath]);
-        if (!error) {
-          console.log("✅ Synced deletion:", item.fileName);
+      if (pendingDeletions.length === 0) return;
+
+      const remaining = [];
+
+      for (const item of pendingDeletions) {
+        try {
+          const { error } = await supabase.storage
+            .from("documents")
+            .remove([item.filePath]);
+
+          if (error) throw error;
+
+          console.log(`🗑️ Synced and deleted pending file: ${item.fileName}`);
+        } catch (err) {
+          console.log("⚠️ Failed to sync deletion:", item.fileName, err.message);
+          remaining.push(item); // keep it if failed
         }
       }
 
-      // 🧹 Clear pending after successful sync
-      await AsyncStorage.removeItem(pendingKey);
+      await AsyncStorage.setItem(pendingKey, JSON.stringify(remaining));
+    } catch (error) {
+      console.error("Sync pending deletions error:", error);
     }
   };
 
-  syncPendingDeletions();
-}, []);
+  // 🚀 Run on page load (e.g., inside useEffect of Documents page)
+  useEffect(() => {
+    const interval = setInterval(syncPendingDeletions, 5000); // retry every 5s
+    syncPendingDeletions(); // also run immediately on mount
+    return () => clearInterval(interval);
+  }, []);
+
+
+
+
 
 
 
@@ -678,12 +740,12 @@ useEffect(() => {
             <Text style={styles.header}>{getHeaderTitle()}</Text>
             <Text style={styles.subHeader}>
               {filteredDocuments.length} document
-              {filteredDocuments.length !== 1 ? "s" : ""} 
+              {filteredDocuments.length !== 1 ? "s" : ""}
               {filterTag || filterCategory ? " found" : " stored"}
             </Text>
           </View>
         </View>
-        
+
         {/* Filter Info Badge */}
         {(filterTag || filterCategory) && (
           <View style={styles.filterBadge}>
@@ -753,13 +815,14 @@ useEffect(() => {
         style={styles.addButton}
         onPress={() => {
           // Navigate to add document screen
-          router.push("/AddDocument");
+          router.push("/components/AddDocument");
         }}
       >
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
 
       {/* QR Modal */}
+
       <Modal visible={showQR} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -769,7 +832,7 @@ useEffect(() => {
             {selectedDoc && (
               <View style={styles.qrContainer}>
                 <QRCode
-                  value={selectedDoc.cloudUrl || selectedDoc.fileUri}
+                  value={selectedDoc.fileUrl || selectedDoc.fileUri} // ✅ FIXED: Use fileUrl instead of cloudUrl
                   size={220}
                   backgroundColor="white"
                 />
@@ -780,12 +843,56 @@ useEffect(() => {
               Scan this code to access the document
             </Text>
 
-            <TouchableOpacity
-              style={styles.closeBtn}
-              onPress={() => setShowQR(false)}
-            >
-              <Text style={styles.closeText}>Close</Text>
-            </TouchableOpacity>
+            {/* Document Details */}
+            {selectedDoc && (
+              <View style={styles.qrDetails}>
+                <Text style={styles.qrDetailText}>
+                  📁 {selectedDoc.category}
+                </Text>
+                {selectedDoc.tag && (
+                  <Text style={styles.qrDetailText}>
+                    🏷️ {selectedDoc.tag}
+                  </Text>
+                )}
+                <Text style={styles.qrDetailText}>
+                  📅 {selectedDoc.uploadedDate}
+                </Text>
+              </View>
+            )}
+
+            {/* Action Buttons */}
+            <View style={styles.qrActions}>
+              {/* Share Button */}
+              <TouchableOpacity
+                style={styles.qrShareBtn}
+                onPress={async () => {
+                  if (selectedDoc) {
+                    try {
+                      const shareUrl = selectedDoc.fileUrl || selectedDoc.fileUri;
+                      const tagInfo = selectedDoc.tag ? `\n🏷️ Tag: ${selectedDoc.tag}` : "";
+                      await Share.share({
+                        message: `📄 ${selectedDoc.name}\n📁 Category: ${selectedDoc.category}${tagInfo}\n📅 Uploaded: ${selectedDoc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
+                        title: `Share ${selectedDoc.name}`,
+                      });
+                    } catch (error) {
+                      console.error("Share error:", error);
+                      Alert.alert("Error", "Unable to share document.");
+                    }
+                  }
+                }}
+              >
+                <Ionicons name="share-social-outline" size={20} color="#fff" />
+                <Text style={styles.qrShareText}>Share Link</Text>
+              </TouchableOpacity>
+
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.closeBtn}
+                onPress={() => setShowQR(false)}
+              >
+                <Text style={styles.closeText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1052,4 +1159,98 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 16,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  qrTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  qrSubtitle: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  qrContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    marginBottom: 16,
+  },
+  qrInstruction: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  qrDetails: {
+    width: "100%",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  qrDetailText: {
+    fontSize: 13,
+    color: "#4B5563",
+    marginVertical: 2,
+  },
+  qrActions: {
+    width: "100%",
+    gap: 10,
+  },
+  qrShareBtn: {
+    backgroundColor: "#059669",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  qrShareText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  closeBtn: {
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  closeText: {
+    color: "#6B7280",
+    fontSize: 16,
+    fontWeight: "600",
+  }
 });

@@ -107,66 +107,288 @@ const AddDocumentModal = ({ visible, onClose, onDocumentAdded }) => {
 
 
 
-  const handleSaveDocument = async () => {
-    console.log("🔵 [START] handleSaveDocument called");
+  // const handleSaveDocument = async () => {
+  //   console.log("🔵 [START] handleSaveDocument called");
 
-    // --- VALIDATION ---
-    if (!selectedFile)
-      return Alert.alert("Missing File", "Please select a file to upload.");
+  //   // --- VALIDATION ---
+  //   if (!selectedFile)
+  //     return Alert.alert("Missing File", "Please select a file to upload.");
 
-    if (!selectedCategory)
-      return Alert.alert("Missing Category", "Please select a category.");
+  //   if (!selectedCategory)
+  //     return Alert.alert("Missing Category", "Please select a category.");
 
-    if (!documentName.trim())
-      return Alert.alert("Missing Name", "Please enter a name for this document.");
+  //   if (!documentName.trim())
+  //     return Alert.alert("Missing Name", "Please enter a name for this document.");
 
-    console.log("✅ Validation passed");
+  //   console.log("✅ Validation passed");
 
-    setUploading(true);
-    const now = new Date();
+  //   setUploading(true);
+  //   const now = new Date();
 
-    try {
-      // --- GET USER DATA ---
-      const savedUserData = await AsyncStorage.getItem("savedUserData");
-      const user = savedUserData ? JSON.parse(savedUserData) : null;
-      const userEmail = user?.email || "unknown_user";
-      const userId = user?.id || null;
+  //   try {
+  //     // --- GET USER DATA ---
+  //     const savedUserData = await AsyncStorage.getItem("savedUserData");
+  //     const user = savedUserData ? JSON.parse(savedUserData) : null;
+  //     const userEmail = user?.email || "unknown_user";
+  //     const userId = user?.id || null;
 
-      const storageKey = `userDocuments_${userEmail}`;
+  //     const storageKey = `userDocuments_${userEmail}`;
 
-      // --- CHECK NETWORK STATUS ---
-      const netState = await NetInfo.fetch();
-      const isConnected = netState.isConnected;
+  //     // --- CHECK NETWORK STATUS ---
+  //     const netState = await NetInfo.fetch();
+  //     const isConnected = netState.isConnected;
 
-      console.log(`🌐 Network connected: ${isConnected}`);
+  //     console.log(`🌐 Network connected: ${isConnected}`);
 
-      let uploadedToCloud = false;
-      let fileUrl = null;
+  //     let uploadedToCloud = false;
+  //     let fileUrl = null;
 
-      // --- IF ONLINE AND USER LOGGED IN, UPLOAD TO SUPABASE ---
-      if (isConnected && userId) {
-        console.log("☁️ Uploading file to Supabase...");
+  //     // --- IF ONLINE AND USER LOGGED IN, UPLOAD TO SUPABASE ---
+  //     if (isConnected && userId) {
+  //       console.log("☁️ Uploading file to Supabase...");
 
+  //       const fileExt = selectedFile.name.split(".").pop();
+  //       const fileName = `${Date.now()}.${fileExt}`;
+  //       const filePath = `${userId}/${fileName}`;
+
+  //       const fileInfo = await FileSystem.getInfoAsync(selectedFile.uri);
+  //       if (!fileInfo.exists) throw new Error("File not found");
+
+  //       // Convert file to base64 → buffer
+  //       const fileBase64 = await FileSystem.readAsStringAsync(selectedFile.uri, {
+  //         encoding: FileSystem.EncodingType.Base64,
+  //       });
+  //       const fileBuffer = decode(fileBase64);
+
+  //       // Ensure active session
+  //       const { data: { session }, error: sessionError } =
+  //         await supabase.auth.getSession();
+  //       if (sessionError) throw new Error(sessionError.message);
+  //       if (!session) throw new Error("User session expired");
+
+  //       // Upload to Supabase Storage
+  //       const { data: uploadData, error: uploadError } = await supabase.storage
+  //         .from("docs")
+  //         .upload(filePath, fileBuffer, {
+  //           contentType: selectedFile.mimeType || "application/octet-stream",
+  //           upsert: false,
+  //         });
+
+  //       if (uploadError) throw uploadError;
+
+  //       // Get public URL
+  //       const { data: publicUrlData } = supabase.storage
+  //         .from("docs")
+  //         .getPublicUrl(filePath);
+  //       fileUrl = publicUrlData.publicUrl;
+
+  //       console.log("✅ Uploaded to Supabase:", fileUrl);
+
+  //       // Save metadata in DB
+  //       const documentMetadata = {
+  //         user_id: userId,
+  //         name: documentName.trim(),
+  //         category: selectedCategory.name,
+  //         tag: selectedTag?.name || null,
+  //         file_url: fileUrl,
+  //         file_name: selectedFile.name,
+  //         mime_type: selectedFile.mimeType,
+  //         file_size: selectedFile.size,
+  //         shared: false,
+  //       };
+
+  //       const { error: insertError } = await supabase
+  //         .from("documents")
+  //         .insert([documentMetadata]);
+
+  //       if (insertError) throw insertError;
+
+  //       uploadedToCloud = true;
+  //       console.log("💾 Metadata saved in DB");
+  //     } else {
+  //       console.log("⚠️ Offline or no user ID — will save locally only.");
+  //     }
+
+  //     // --- ALWAYS SAVE LOCALLY ---
+  //     const docToSave = {
+  //       id: Date.now(),
+  //       userEmail,
+  //       name: documentName.trim(),
+  //       originalFileName: selectedFile.name,
+  //       category: selectedCategory.name,
+  //       categoryIcon: selectedCategory.icon,
+  //       tag: selectedTag?.name || null,
+  //       tagIcon: selectedTag?.icon || null,
+  //       fileUri: selectedFile.uri,
+  //       fileName: selectedFile.name,
+  //       fileSize: selectedFile.size,
+  //       mimeType: selectedFile.mimeType,
+  //       uploadedAt: now.toISOString(),
+  //       uploadedDate: now.toLocaleDateString(),
+  //       uploadedTime: now.toLocaleTimeString(),
+  //       uploadedToCloud,
+  //       fileUrl,
+  //     };
+
+  //     const stored = await AsyncStorage.getItem(storageKey);
+  //     const existingDocs = stored ? JSON.parse(stored) : [];
+  //     const updatedDocs = [...existingDocs, docToSave];
+
+  //     await AsyncStorage.setItem(storageKey, JSON.stringify(updatedDocs));
+
+  //     console.log(`✅ Local storage updated — total: ${updatedDocs.length}`);
+
+
+  //     // 📝 --- ADD LOG ENTRY HERE ---
+  //     const logEntry = {
+  //       id: Date.now(),
+  //       userEmail,
+  //       action: "DOCUMENT_ADDED",
+  //       timestamp: now.toISOString(),
+  //       date: now.toLocaleDateString(),
+  //       time: now.toLocaleTimeString(),
+  //       documentName: documentName.trim(),
+  //       documentId: docToSave.id,
+  //       category: selectedCategory.name,
+  //       tag: selectedTag?.name || "None",
+  //       fileName: selectedFile.name,
+  //       fileSize: selectedFile.size,
+  //       uploadedToCloud,
+  //       details: uploadedToCloud
+  //         ? `Document "${documentName.trim()}" uploaded to cloud and saved locally.`
+  //         : `Document "${documentName.trim()}" saved locally (offline).`,
+  //     };
+
+  //     // ✅ Save log locally
+  //     await addLog(logEntry);
+  //     console.log("✅ [LOG] Activity log saved");
+
+
+  //     // --- FEEDBACK TO USER ---
+  //     const successMsg = uploadedToCloud
+  //       ? "✅ Document uploaded to cloud and saved locally!"
+  //       : "✅ Document saved locally (will sync when online)";
+  //     Alert.alert("Success", successMsg);
+
+  //     if (onDocumentAdded) onDocumentAdded();
+  //     resetForm();
+  //     onClose();
+
+  //   } catch (err) {
+  //     console.error("❌ Error:", err);
+  //     Alert.alert("Error", `Failed to save document: ${err.message}`);
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // };
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// FIXED handleSaveDocument with Proper Error Handling
+// ==========================================
+
+const handleSaveDocument = async () => {
+  console.log("🔵 [START] handleSaveDocument called");
+
+  // --- VALIDATION ---
+  if (!selectedFile) {
+    console.log("❌ [ERROR] No file selected");
+    return Alert.alert("Missing File", "Please select a file to upload.");
+  }
+
+  if (!selectedCategory) {
+    console.log("❌ [ERROR] No category selected");
+    return Alert.alert("Missing Category", "Please select a category.");
+  }
+
+  if (!documentName.trim()) {
+    console.log("❌ [ERROR] No document name");
+    return Alert.alert("Missing Name", "Please enter a name for this document.");
+  }
+
+  console.log("✅ [VALIDATION] All fields validated");
+  console.log("📄 [FILE INFO]", {
+    name: selectedFile.name,
+    size: selectedFile.size,
+    mimeType: selectedFile.mimeType,
+    uri: selectedFile.uri
+  });
+
+  setUploading(true);
+  const now = new Date();
+
+  try {
+    // --- GET USER DATA ---
+    console.log("👤 [USER] Fetching user data...");
+    const savedUserData = await AsyncStorage.getItem("savedUserData");
+    const user = savedUserData ? JSON.parse(savedUserData) : null;
+    const userEmail = user?.email || "unknown_user";
+    const userId = user?.id || null;
+
+    console.log("👤 [USER DATA]", { userEmail, userId });
+
+    const storageKey = `userDocuments_${userEmail}`;
+    console.log("🔑 [STORAGE KEY]", storageKey);
+
+    // --- CHECK NETWORK STATUS ---
+    console.log("🌐 [NETWORK] Checking connection...");
+    const netState = await NetInfo.fetch();
+    const isConnected = netState.isConnected;
+    console.log(`🌐 [NETWORK] Connected: ${isConnected}`);
+
+    let uploadedToCloud = false;
+    let fileUrl = null;
+
+    // --- TRY UPLOADING TO CLOUD (with error handling) ---
+    if (isConnected && userId) {
+      console.log("☁️ [CLOUD] Starting upload to Supabase...");
+
+      try {
         const fileExt = selectedFile.name.split(".").pop();
         const fileName = `${Date.now()}.${fileExt}`;
         const filePath = `${userId}/${fileName}`;
 
-        const fileInfo = await FileSystem.getInfoAsync(selectedFile.uri);
-        if (!fileInfo.exists) throw new Error("File not found");
+        console.log("📦 [FILE PREP]", { fileExt, fileName, filePath });
+
+        // REMOVED DEPRECATED getInfoAsync - DocumentPicker already validates file exists
 
         // Convert file to base64 → buffer
+        console.log("🔄 [ENCODING] Converting to base64...");
         const fileBase64 = await FileSystem.readAsStringAsync(selectedFile.uri, {
           encoding: FileSystem.EncodingType.Base64,
         });
+        console.log(`✅ [ENCODING] Success - ${fileBase64.length} chars`);
+
+        console.log("🔄 [DECODING] Converting to buffer...");
         const fileBuffer = decode(fileBase64);
+        console.log(`✅ [DECODING] Success - ${fileBuffer.byteLength} bytes`);
 
         // Ensure active session
-        const { data: { session }, error: sessionError } =
-          await supabase.auth.getSession();
-        if (sessionError) throw new Error(sessionError.message);
-        if (!session) throw new Error("User session expired");
+        console.log("🔐 [AUTH] Checking session...");
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.log("❌ [AUTH ERROR]", sessionError);
+          throw new Error(`Auth error: ${sessionError.message}`);
+        }
+        
+        if (!session) {
+          console.log("⚠️ [AUTH] No session found");
+          throw new Error("User session expired");
+        }
+        
+        console.log("✅ [AUTH] Session active");
 
         // Upload to Supabase Storage
+        console.log("☁️ [UPLOAD] Uploading to storage bucket 'docs'...");
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("docs")
           .upload(filePath, fileBuffer, {
@@ -174,17 +396,28 @@ const AddDocumentModal = ({ visible, onClose, onDocumentAdded }) => {
             upsert: false,
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.log("❌ [UPLOAD ERROR]", {
+            message: uploadError.message,
+            statusCode: uploadError.statusCode,
+            error: uploadError
+          });
+          throw uploadError;
+        }
+
+        console.log("✅ [UPLOAD] Success:", uploadData);
 
         // Get public URL
+        console.log("🔗 [URL] Getting public URL...");
         const { data: publicUrlData } = supabase.storage
           .from("docs")
           .getPublicUrl(filePath);
+        
         fileUrl = publicUrlData.publicUrl;
-
-        console.log("✅ Uploaded to Supabase:", fileUrl);
+        console.log("✅ [URL] Public URL:", fileUrl);
 
         // Save metadata in DB
+        console.log("💾 [DATABASE] Saving metadata...");
         const documentMetadata = {
           user_id: userId,
           name: documentName.trim(),
@@ -197,90 +430,135 @@ const AddDocumentModal = ({ visible, onClose, onDocumentAdded }) => {
           shared: false,
         };
 
-        const { error: insertError } = await supabase
-          .from("documents")
-          .insert([documentMetadata]);
+        console.log("📋 [METADATA]", documentMetadata);
 
-        if (insertError) throw insertError;
+        const { data: insertData, error: insertError } = await supabase
+          .from("documents")
+          .insert([documentMetadata])
+          .select(); // Get inserted data back
+
+        if (insertError) {
+          console.log("❌ [DATABASE ERROR]", {
+            message: insertError.message,
+            code: insertError.code,
+            details: insertError.details,
+            hint: insertError.hint
+          });
+          throw insertError;
+        }
 
         uploadedToCloud = true;
-        console.log("💾 Metadata saved in DB");
-      } else {
-        console.log("⚠️ Offline or no user ID — will save locally only.");
+        console.log("✅ [DATABASE] Metadata saved:", insertData);
+        console.log("🎉 [CLOUD] Upload complete!");
+
+      } catch (cloudError) {
+        // Cloud upload failed, but we'll still save locally
+        console.log("❌ [CLOUD UPLOAD FAILED]", {
+          message: cloudError.message,
+          error: cloudError
+        });
+        console.log("💾 [FALLBACK] Will save locally only");
+        uploadedToCloud = false;
+        // Don't throw - continue to save locally
       }
-
-      // --- ALWAYS SAVE LOCALLY ---
-      const docToSave = {
-        id: Date.now(),
-        userEmail,
-        name: documentName.trim(),
-        originalFileName: selectedFile.name,
-        category: selectedCategory.name,
-        categoryIcon: selectedCategory.icon,
-        tag: selectedTag?.name || null,
-        tagIcon: selectedTag?.icon || null,
-        fileUri: selectedFile.uri,
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        mimeType: selectedFile.mimeType,
-        uploadedAt: now.toISOString(),
-        uploadedDate: now.toLocaleDateString(),
-        uploadedTime: now.toLocaleTimeString(),
-        uploadedToCloud,
-        fileUrl,
-      };
-
-      const stored = await AsyncStorage.getItem(storageKey);
-      const existingDocs = stored ? JSON.parse(stored) : [];
-      const updatedDocs = [...existingDocs, docToSave];
-
-      await AsyncStorage.setItem(storageKey, JSON.stringify(updatedDocs));
-
-      console.log(`✅ Local storage updated — total: ${updatedDocs.length}`);
-
-
-      // 📝 --- ADD LOG ENTRY HERE ---
-      const logEntry = {
-        id: Date.now(),
-        userEmail,
-        action: "DOCUMENT_ADDED",
-        timestamp: now.toISOString(),
-        date: now.toLocaleDateString(),
-        time: now.toLocaleTimeString(),
-        documentName: documentName.trim(),
-        documentId: docToSave.id,
-        category: selectedCategory.name,
-        tag: selectedTag?.name || "None",
-        fileName: selectedFile.name,
-        fileSize: selectedFile.size,
-        uploadedToCloud,
-        details: uploadedToCloud
-          ? `Document "${documentName.trim()}" uploaded to cloud and saved locally.`
-          : `Document "${documentName.trim()}" saved locally (offline).`,
-      };
-
-      // ✅ Save log locally
-      await addLog(logEntry);
-      console.log("✅ [LOG] Activity log saved");
-
-
-      // --- FEEDBACK TO USER ---
-      const successMsg = uploadedToCloud
-        ? "✅ Document uploaded to cloud and saved locally!"
-        : "✅ Document saved locally (will sync when online)";
-      Alert.alert("Success", successMsg);
-
-      if (onDocumentAdded) onDocumentAdded();
-      resetForm();
-      onClose();
-
-    } catch (err) {
-      console.error("❌ Error:", err);
-      Alert.alert("Error", `Failed to save document: ${err.message}`);
-    } finally {
-      setUploading(false);
+    } else {
+      if (!isConnected) {
+        console.log("⚠️ [OFFLINE] No internet - saving locally only");
+      }
+      if (!userId) {
+        console.log("⚠️ [NO USER] No userId - saving locally only");
+      }
     }
-  };
+
+    // --- ALWAYS SAVE LOCALLY ---
+    console.log("💾 [LOCAL] Saving to AsyncStorage...");
+    const docToSave = {
+      id: Date.now(),
+      userEmail,
+      name: documentName.trim(),
+      originalFileName: selectedFile.name,
+      category: selectedCategory.name,
+      categoryIcon: selectedCategory.icon,
+      tag: selectedTag?.name || null,
+      tagIcon: selectedTag?.icon || null,
+      fileUri: selectedFile.uri,
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      mimeType: selectedFile.mimeType,
+      uploadedAt: now.toISOString(),
+      uploadedDate: now.toLocaleDateString(),
+      uploadedTime: now.toLocaleTimeString(),
+      uploadedToCloud,
+      fileUrl,
+    };
+
+    console.log("📦 [DOC DATA]", docToSave);
+
+    const stored = await AsyncStorage.getItem(storageKey);
+    const existingDocs = stored ? JSON.parse(stored) : [];
+    const updatedDocs = [...existingDocs, docToSave];
+
+    await AsyncStorage.setItem(storageKey, JSON.stringify(updatedDocs));
+    console.log(`✅ [LOCAL] Saved! Total documents: ${updatedDocs.length}`);
+
+    // --- ADD LOG ENTRY ---
+    console.log("📝 [LOG] Creating activity log...");
+    const logEntry = {
+      id: Date.now(),
+      userEmail,
+      action: "DOCUMENT_ADDED",
+      timestamp: now.toISOString(),
+      date: now.toLocaleDateString(),
+      time: now.toLocaleTimeString(),
+      documentName: documentName.trim(),
+      documentId: docToSave.id,
+      category: selectedCategory.name,
+      tag: selectedTag?.name || "None",
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      uploadedToCloud,
+      details: uploadedToCloud
+        ? `Document "${documentName.trim()}" uploaded to cloud and saved locally.`
+        : `Document "${documentName.trim()}" saved locally (offline).`,
+    };
+
+    await addLog(logEntry);
+    console.log("✅ [LOG] Activity log saved");
+
+    // --- FEEDBACK TO USER ---
+    const successMsg = uploadedToCloud
+      ? "✅ Document uploaded to cloud and saved locally!"
+      : "✅ Document saved locally (will sync when online)";
+    
+    console.log(`🎉 [SUCCESS] ${successMsg}`);
+    Alert.alert("Success", successMsg);
+
+    // --- CLEANUP & CALLBACK ---
+    if (onDocumentAdded) {
+      console.log("🔄 [CALLBACK] Calling onDocumentAdded");
+      onDocumentAdded();
+    }
+    
+    resetForm();
+    onClose();
+    console.log("🔵 [END] handleSaveDocument completed");
+
+  } catch (err) {
+    console.error("❌ [CRITICAL ERROR]", {
+      message: err.message,
+      stack: err.stack,
+      error: err
+    });
+    Alert.alert("Error", `Failed to save document: ${err.message}`);
+  } finally {
+    setUploading(false);
+    console.log("🏁 [CLEANUP] Upload state reset");
+  }
+};
+
+
+
+
 
 
 
