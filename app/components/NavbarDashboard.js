@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
-import Icon from "react-native-vector-icons/Feather";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as FileSystem from "expo-file-system/legacy";
+import { useEffect, useState } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Icon from "react-native-vector-icons/Feather";
 import styles from "../styles/dashboardStyle";
 
 const Navbar = () => {
@@ -15,7 +14,7 @@ const Navbar = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem("user");
+        const storedUser = await AsyncStorage.getItem("savedUserData");
         const savedProfileImage = await AsyncStorage.getItem("profileImage");
         
         if (storedUser) {

@@ -54,53 +54,54 @@ export default function ProfileScreen() {
   }, []);
 
   const loadUserData = async () => {
-    try {
-      const storedUser = await AsyncStorage.getItem("user");
-      const savedLanguage = await AsyncStorage.getItem("appLanguage");
-      const savedProfileImage = await AsyncStorage.getItem("profileImage");
-      const savedProfileImageUrl = await AsyncStorage.getItem("profileImageUrl");
-      const savedBiometric = await AsyncStorage.getItem("biometricEnabled");
+  try {
+    // 🔹 Read correct storage key
+    const storedUser = await AsyncStorage.getItem("savedUserData"); 
+    const savedLanguage = await AsyncStorage.getItem("appLanguage");
+    const savedProfileImage = await AsyncStorage.getItem("profileImage");
+    const savedProfileImageUrl = await AsyncStorage.getItem("profileImageUrl");
+    const savedBiometric = await AsyncStorage.getItem("biometricEnabled");
 
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      setUser(userData);
 
-        const displayName =
-          userData.name ||
-          userData.user_metadata?.username ||
-          userData.email?.split("@")[0] ||
-          "User";
+      const displayName =
+        userData.name ||
+        userData.user_metadata?.username ||
+        userData.email?.split("@")[0] ||
+        "User";
 
-        setUsername(displayName);
-        setEmail(userData.email || "");
+      setUsername(displayName);
+      setEmail(userData.email || "");
 
-        // Handle Profile Image
-        const imageUrl = userData.picture;
+      // 🖼 Handle Profile Image
+      const imageUrl = userData.picture || savedProfileImageUrl;
 
-        if (imageUrl && imageUrl !== savedProfileImageUrl) {
-          const fileUri = `${FileSystem.documentDirectory}profile.jpg`;
-          const downloadResumable = FileSystem.createDownloadResumable(
-            imageUrl,
-            fileUri
-          );
-          await downloadResumable.downloadAsync();
+      if (imageUrl && imageUrl !== savedProfileImageUrl) {
+        const fileUri = `${FileSystem.documentDirectory}profile.jpg`;
+        const downloadResumable = FileSystem.createDownloadResumable(imageUrl, fileUri);
+        await downloadResumable.downloadAsync();
 
-          await AsyncStorage.setItem("profileImage", fileUri);
-          await AsyncStorage.setItem("profileImageUrl", imageUrl);
-
-          setProfileImage(fileUri);
-        } else if (savedProfileImage) {
-          setProfileImage(savedProfileImage);
-        }
+        await AsyncStorage.setItem("profileImage", fileUri);
+        await AsyncStorage.setItem("profileImageUrl", imageUrl);
+        setProfileImage(fileUri);
+      } else if (savedProfileImage) {
+        setProfileImage(savedProfileImage);
+      } else {
+        // Fallback
+        setProfileImage(null);
       }
-
-      if (savedLanguage) setLanguage(savedLanguage);
-      if (savedBiometric) setBiometricEnabled(savedBiometric === "true");
-
-    } catch (error) {
-      console.error("Error loading user data:", error);
     }
-  };
+
+    if (savedLanguage) setLanguage(savedLanguage);
+    if (savedBiometric) setBiometricEnabled(savedBiometric === "true");
+
+  } catch (error) {
+    console.error("Error loading user data:", error);
+  }
+};
+
 
   const checkBiometricAvailability = async () => {
     try {

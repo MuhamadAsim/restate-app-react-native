@@ -43,96 +43,220 @@ const DocumentsScreen = () => {
 
 
 
-  // Load documents from AsyncStorage and sync with cloud
- const loadDocuments = useCallback(async () => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const loadDocuments = useCallback(async () => {
   try {
+    console.log("🔵 [START] Loading documents...");
     setLoading(true);
     setSyncStatus("Loading local documents...");
 
     // 🧠 Get logged-in user data
+    console.log("👤 [USER] Fetching user data...");
     const savedUserData = await AsyncStorage.getItem("savedUserData");
     const user = savedUserData ? JSON.parse(savedUserData) : null;
     const userId = user?.id;
     const userEmail = user?.email;
 
-    if (!userId) {
+    console.log("👤 [USER DATA]", { userId, userEmail });
+
+    if (!userId || !userEmail) {
+      console.log("❌ [ERROR] User not logged in");
       Alert.alert("Error", "User not logged in.");
+      setLoading(false);
       return;
     }
 
     // 🗂️ Load local docs first
     const storageKey = `userDocuments_${userEmail}`;
+    console.log("📦 [STORAGE] Loading from key:", storageKey);
+
     const stored = await AsyncStorage.getItem(storageKey);
     const localDocs = stored ? JSON.parse(stored) : [];
+
+    console.log(`📦 [LOCAL DOCS] Found ${localDocs.length} local documents`);
+    console.log("📄 [LOCAL DOCS SAMPLE]", localDocs.slice(0, 2)); // Show first 2 docs
+
+    // Show local docs immediately
     setDocuments(localDocs);
     applyFilters(localDocs);
 
     // 🌐 Check Internet connection
+    console.log("🌐 [NETWORK] Checking connection...");
     const netState = await NetInfo.fetch();
     const isConnected = netState.isConnected;
+    console.log(`🌐 [NETWORK] Connected: ${isConnected}`);
 
     if (!isConnected) {
+      console.log("⚠️ [OFFLINE] No internet - showing local docs only");
       setSyncStatus("Offline mode — showing local documents");
-      return; // stop here if offline
+      setLoading(false);
+      return;
     }
 
     setSyncStatus("Fetching documents from cloud...");
 
+    // 🔐 Check Supabase session
+    console.log("🔐 [AUTH] Checking session...");
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      console.log("⚠️ [AUTH] No session - using local docs only", sessionError);
+      setSyncStatus("Not authenticated - showing local documents");
+      setLoading(false);
+      return;
+    }
+
+    console.log("✅ [AUTH] Session active");
+
     // ☁️ Fetch from Supabase
+    console.log("☁️ [CLOUD] Fetching documents from Supabase...");
     const { data: cloudDocs, error } = await supabase
       .from("documents")
       .select("*")
       .eq("user_id", userId)
-      .order("uploaded_at", { ascending: false });
+      .order("uploaded_at", { ascending: false }); // ✅ use uploaded_at instead of created_at
 
     if (error) {
-      console.error("Cloud fetch error:", error);
-      setSyncStatus("Cloud sync failed");
+      console.error("❌ [CLOUD ERROR]", error);
+      setSyncStatus("Cloud sync failed - showing local documents");
+      setLoading(false);
       return;
     }
 
-    // 🧩 Merge cloud + local docs (avoid duplicates)
-    const existingIds = localDocs.map((d) => d.id);
-    const mergedDocs = [
-      ...cloudDocs.map((d) => ({
+    console.log(`☁️ [CLOUD DOCS] Found ${cloudDocs?.length || 0} cloud documents`);
+    console.log("📄 [CLOUD DOCS SAMPLE]", cloudDocs?.slice(0, 2));
+
+    if (!cloudDocs || cloudDocs.length === 0) {
+      console.log("ℹ️ [CLOUD] No cloud documents found");
+      setSyncStatus("No cloud documents found");
+      setLoading(false);
+      return;
+    }
+
+    // 🧩 Map cloud documents to local format
+    console.log("🔄 [MAPPING] Converting cloud docs to local format...");
+    const mappedCloudDocs = cloudDocs.map((d) => {
+      const uploadDate = new Date(d.uploaded_at);
+      return {
         id: d.id,
+        cloudId: d.id,
         userEmail,
         name: d.name,
+        originalFileName: d.file_name,
         category: d.category,
+        categoryIcon: getCategoryIcon(d.category),
         tag: d.tag,
-        fileUri: d.file_url, // online file
+        tagIcon: getTagIcon(d.tag),
+        fileUri: d.file_url,
         fileUrl: d.file_url,
         fileName: d.file_name,
         mimeType: d.mime_type,
         fileSize: d.file_size,
         uploadedAt: d.uploaded_at,
-        uploadedDate: new Date(d.uploaded_at).toLocaleDateString(),
-        uploadedTime: new Date(d.uploaded_at).toLocaleTimeString(),
+        uploadedDate: uploadDate.toLocaleDateString(),
+        uploadedTime: uploadDate.toLocaleTimeString(),
         uploadedToCloud: true,
-      })),
-      // Keep local-only docs (not uploaded yet)
-      ...localDocs.filter((d) => !existingIds.includes(d.id)),
-    ];
+        cloudSynced: true,
+      };
+    });
+
+    console.log("✅ [MAPPING] Mapped cloud docs:", mappedCloudDocs.length);
+
+    // 🧠 Smart duplicate removal using name + size + tag
+    const mergedDocsMap = new Map();
+
+    // Step 1: Add cloud docs first (priority)
+    for (const doc of mappedCloudDocs) {
+      const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
+      mergedDocsMap.set(key, doc);
+    }
+
+    // Step 2: Add local docs only if not duplicated
+    for (const doc of localDocs) {
+      const key = `${doc.name}_${doc.fileSize}_${doc.tag || ""}`;
+      if (!mergedDocsMap.has(key)) {
+        mergedDocsMap.set(key, doc);
+      }
+    }
+
+    // Step 3: Convert back to array
+    const mergedDocs = Array.from(mergedDocsMap.values());
+
+    console.log(`✅ [MERGE] Total unique documents: ${mergedDocs.length}`);
+    console.log("📊 [BREAKDOWN]", {
+      cloudDocs: mappedCloudDocs.length,
+      localOnly: localDocs.length - (mergedDocs.length - mappedCloudDocs.length),
+      total: mergedDocs.length,
+    });
 
     // 💾 Save merged docs to local storage
+    console.log("💾 [SAVE] Saving merged docs to AsyncStorage...");
     await AsyncStorage.setItem(storageKey, JSON.stringify(mergedDocs));
+    console.log("✅ [SAVE] Saved successfully");
 
     // 🖥️ Update UI
     setDocuments(mergedDocs);
     applyFilters(mergedDocs);
 
     setSyncStatus(`Synced ${cloudDocs.length} cloud documents`);
+    console.log("🎉 [SUCCESS] Documents loaded and synced");
+
     setTimeout(() => setSyncStatus(""), 2000);
   } catch (error) {
-    console.error("Error loading documents:", error);
-    Alert.alert("Error", "Failed to load documents.");
+    console.error("❌ [CRITICAL ERROR] Loading documents failed:", error);
+    console.error("Stack:", error.stack);
+    Alert.alert("Error", `Failed to load documents: ${error.message}`);
   } finally {
     setLoading(false);
+    console.log("🏁 [END] loadDocuments completed");
   }
 }, [filterTag, filterCategory, filterType]);
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+// Helper function to get category icon
+const getCategoryIcon = (category) => {
+  const icons = {
+    "Government services": "📋",
+    "Banking & Finance": "💰",
+    "Education & Learning": "🏫",
+    "Transport": "🚗",
+    "Health & Insurance": "🏥",
+    "Other Documents": "📄",
+  };
+  return icons[category] || "📄";
+};
+
+// Helper function to get tag icon
+const getTagIcon = (tag) => {
+  // Return empty string if no tag, as your quickTags don't have icons
+  return "";
+};
 
 
 
@@ -629,7 +753,7 @@ useEffect(() => {
         style={styles.addButton}
         onPress={() => {
           // Navigate to add document screen
-          Alert.alert("Add Document", "This will open the add document modal");
+          router.push("/AddDocument");
         }}
       >
         <Ionicons name="add" size={32} color="#fff" />
