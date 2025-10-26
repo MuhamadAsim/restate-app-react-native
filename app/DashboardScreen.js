@@ -5,9 +5,11 @@ import {
   Text, 
   TextInput, 
   ScrollView, 
-  SafeAreaView 
+  SafeAreaView,
+  TouchableOpacity 
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useRouter } from 'expo-router';
 
 // Import components
 import Navbar from './components/NavbarDashboard';
@@ -20,6 +22,7 @@ import styles from './styles/dashboardStyle';
 
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,10 +50,13 @@ const App = () => {
 
         {/* Bottom Section with Notes and Banner */}
         <View style={styles.bottomSection}>
-          <View style={styles.notesCard}>
+          <TouchableOpacity 
+            style={styles.notesCard}
+            onPress={() => router.push('/NotesScreen')}
+          >
             <Icon name="file-text" size={24} color="white" />
             <Text style={styles.notesTitle}>New note</Text>
-          </View>
+          </TouchableOpacity>
           
           <View style={[styles.adBanner, styles.banner2, styles.banner2Small]}>
             <Text style={styles.bannerText}>Banner 2</Text>

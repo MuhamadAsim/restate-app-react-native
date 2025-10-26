@@ -395,24 +395,31 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: t.cancel, style: "cancel" },
-      {
-        text: t.logout,
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await AsyncStorage.removeItem("user");
-            await supabase.auth.signOut();
-            router.replace("/");
-          } catch (error) {
-            console.error("Error logging out:", error);
-          }
-        },
+const handleLogout = async () => {
+  Alert.alert("Logout", "Are you sure you want to logout?", [
+    { text: t.cancel, style: "cancel" },
+    {
+      text: t.logout,
+      style: "destructive",
+      onPress: async () => {
+        try {
+          // Disable biometric login
+          setBiometricEnabled(false);
+          await AsyncStorage.setItem("biometricEnabled", "false");
+
+          // Clear user session
+          await AsyncStorage.removeItem("user");
+          await supabase.auth.signOut();
+
+          router.replace("/");
+        } catch (error) {
+          console.error("Error logging out:", error);
+          Alert.alert(t.error, "Error occurred during logout");
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   return (
     <View style={styles.container}>

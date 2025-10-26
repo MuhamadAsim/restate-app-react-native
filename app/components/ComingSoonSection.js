@@ -1,6 +1,5 @@
-// components/ComingSoonSection.js
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 
 const ComingSoonSection = () => {
   const comingSoonItems = [
@@ -14,13 +13,22 @@ const ComingSoonSection = () => {
     { id: 8, name: 'Social Work', icon: '📦' },
   ];
 
+  const handleComingSoon = (name) => {
+    Alert.alert('🚧 Coming Soon', `${name} feature is under development.`);
+  };
+
   return (
     <View style={styles.comingSoonSection}>
       <Text style={styles.sectionTitle}>Coming Soon</Text>
       
       <View style={styles.comingSoonGrid}>
         {comingSoonItems.map(item => (
-          <TouchableOpacity key={item.id} style={styles.comingSoonCard}>
+          <TouchableOpacity 
+            key={item.id} 
+            style={styles.comingSoonCard}
+            onPress={() => handleComingSoon(item.name)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.comingSoonIcon}>{item.icon}</Text>
             <Text style={styles.comingSoonName}>{item.name}</Text>
           </TouchableOpacity>
@@ -43,10 +51,10 @@ const styles = StyleSheet.create({
   comingSoonGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between', // This ensures even spacing
+    justifyContent: 'space-between',
   },
   comingSoonCard: {
-    width: '23%', // Smaller boxes - 4 items will fit with space-between
+    width: '23%',
     backgroundColor: 'white',
     borderRadius: 12,
     paddingVertical: 12,
@@ -56,7 +64,7 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
     minHeight: 90,
     justifyContent: 'center',
-    marginBottom: 12, // Space between rows
+    marginBottom: 12,
   },
   comingSoonIcon: {
     fontSize: 28,

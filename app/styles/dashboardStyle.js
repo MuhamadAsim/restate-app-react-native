@@ -5,6 +5,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+    marginTop: 0,
+  },
+  showMoreText: {
+    fontSize: 14,
+    color: "#667eea",
+    fontWeight: "500",
+    marginTop: 8,
   },
   
   scrollView: {
@@ -97,7 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   banner1: {
-    backgroundColor: "#e91e63",
+    backgroundColor: "#ec87a9ff",
   },
   banner2: {
     backgroundColor: "#e0e0e0",

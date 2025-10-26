@@ -20,10 +20,10 @@ const BottomNav = () => {
 
   const handleNavigation = (screen) => {
     setActive(screen);
-    if (screen === "home" && pathname !== "/Dashboard") router.push("/Dashboard");
+    if (screen === "home" && pathname !== "/Dashboard") router.push("/DashboardScreen");
     else if (screen === "profile" && pathname !== "/profile") router.push("/profile");
     else if (screen === "documents" && pathname !== "/documents") router.push("/DocumentsScreen");
-    else if (screen === "activity" && pathname !== "/activity") router.push("/activity");
+    else if (screen === "activity" && pathname !== "/activity") router.push("/ActivityScreen");
   };
 
   return (

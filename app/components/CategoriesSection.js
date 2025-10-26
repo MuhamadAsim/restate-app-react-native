@@ -1,9 +1,12 @@
-// components/CategoriesSection.js
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import styles from '../styles/dashboardStyle';
+import { useRouter, usePathname } from 'expo-router';
 
 const CategoriesSection = () => {
+  const router = useRouter();
+  const pathname = usePathname();
+  
   const [showMore, setShowMore] = useState(false);
 
   const mainCategories = [
@@ -25,20 +28,42 @@ const CategoriesSection = () => {
     ? [...mainCategories, ...moreCategories] 
     : mainCategories;
 
+  // Navigate to documents screen with category filter
+  const handleCategoryPress = (category) => {
+    if (pathname !== "/DocumentsScreen") {
+      router.push({
+        pathname: "/DocumentsScreen",
+        params: {
+          category: category.name,
+          filterType: "category"
+        }
+      });
+    }
+  };
+
+  // Toggle show more/less
+  const toggleShowMore = () => {
+    setShowMore(!showMore);
+  };
+
   return (
     <View style={styles.categoriesSection}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Categories</Text>
-        <TouchableOpacity onPress={() => setShowMore(!showMore)}>
+        <TouchableOpacity onPress={toggleShowMore}>
           <Text style={styles.viewAllText}>
-            {showMore ? 'View less' : 'View all'}
+            {showMore ? 'Show Less' : 'Show More'}
           </Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.categoriesGrid}>
         {displayedCategories.map(category => (
-          <TouchableOpacity key={category.id} style={styles.categoryCard}>
+          <TouchableOpacity 
+            key={category.id} 
+            style={styles.categoryCard}
+            onPress={() => handleCategoryPress(category)}
+          >
             <Text style={styles.categoryIcon}>{category.icon}</Text>
             <Text style={styles.categoryName}>{category.name}</Text>
           </TouchableOpacity>

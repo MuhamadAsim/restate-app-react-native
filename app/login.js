@@ -1,6 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
+import NetInfo from "@react-native-community/netinfo";
+import * as LocalAuthentication from "expo-local-authentication";
+
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +30,8 @@ const translations = {
     noAccount: "Don't have an account? ",
     signUp: "Sign up",
     success: "✅ Logged in successfully!",
+    biometricLogin: "Login with Biometric",
+    biometricPrompt: "Authenticate to login",
   },
   np: {
     welcome: "स्वागत छ!",
@@ -40,6 +45,8 @@ const translations = {
     noAccount: "खाता छैन? ",
     signUp: "साइन अप गर्नुहोस्",
     success: "✅ सफलतापूर्वक लगइन भयो!",
+    biometricLogin: "बायोमेट्रिक लगइन",
+    biometricPrompt: "प्रमाणीकरण गर्नुहोस्",
   },
 };
 
@@ -51,6 +58,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [focusedInput, setFocusedInput] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
     const loadLanguage = async () => {
@@ -60,22 +69,126 @@ export default function LoginScreen() {
     loadLanguage();
   }, []);
 
+  // Check if biometric is available and enabled, then auto-trigger
   useEffect(() => {
-    const checkUser = async () => {
+    const checkAndTriggerBiometric = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem("user");
-        if (storedUser) {
-          router.replace("/Dashboard");
+        const compatible = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+        const savedBiometric = await AsyncStorage.getItem("biometricEnabled");
+        const savedEmail = await AsyncStorage.getItem("savedEmail");
+        
+        // Auto-trigger biometric if:
+        // 1. Device supports biometric
+        // 2. User has enrolled biometric
+        // 3. User has enabled it in settings
+        // 4. There are saved credentials
+        const shouldTrigger = compatible && enrolled && savedBiometric === "true" && savedEmail !== null;
+        
+        setBiometricAvailable(compatible && enrolled);
+        setBiometricEnabled(savedBiometric === "true" && savedEmail !== null);
+
+        // Auto-trigger biometric authentication on page load
+        if (shouldTrigger) {
+          // Small delay to ensure UI is ready
+          setTimeout(() => {
+            handleBiometricLogin();
+          }, 500);
         }
-      } catch (err) {
-        console.error("Error checking user:", err);
+      } catch (error) {
+        console.error("Error checking biometric:", error);
+        setBiometricAvailable(false);
       }
     };
-    checkUser();
+    checkAndTriggerBiometric();
   }, []);
 
   const t = translations[language];
 
+  // Biometric Login Handler
+  const handleBiometricLogin = async () => {
+    try {
+      // 1️⃣ Authenticate with biometric
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t.biometricPrompt,
+        fallbackLabel: "Use password",
+        disableDeviceFallback: false,
+      });
+
+      if (!result.success) {
+        // User cancelled or failed - stay on login screen
+        return;
+      }
+
+      // 2️⃣ Get saved credentials
+      const savedEmail = await AsyncStorage.getItem("savedEmail");
+      const savedPassword = await AsyncStorage.getItem("savedPassword");
+
+      if (!savedEmail || !savedPassword) {
+        Alert.alert("Error", "No saved credentials found. Please login with email and password first.");
+        return;
+      }
+
+      setLoading(true);
+
+      // 3️⃣ Check internet connection
+      const netState = await NetInfo.fetch();
+      const isConnected = netState.isConnected;
+
+      if (!isConnected) {
+        // 📴 Offline - verify credentials match locally
+        Alert.alert("Offline Mode", "Logged in offline successfully!");
+        router.replace("/DashboardScreen");
+        return;
+      }
+
+      // 🌍 Online - authenticate with Supabase using saved credentials
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: savedEmail,
+        password: savedPassword,
+      });
+
+      if (error) {
+        Alert.alert("Login Failed", "Unable to login. Your saved credentials may be outdated. Please login manually.");
+        console.error("Biometric login error:", error);
+        return;
+      }
+
+      const user = data.user;
+
+      // 4️⃣ Fetch profile (optional - for updated data)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("name, picture")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Profile fetch error:", profileError);
+      }
+
+      // 5️⃣ Update saved user data if needed
+      const fullUser = {
+        id: user.id,
+        email: user.email,
+        name: profile?.name || "",
+        picture: profile?.picture || null,
+      };
+
+      await AsyncStorage.setItem("savedUserData", JSON.stringify(fullUser));
+
+      Alert.alert("Success", t.success);
+      router.replace("/DashboardScreen");
+
+    } catch (err) {
+      console.error("Biometric login error:", err);
+      Alert.alert("Error", "Biometric login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manual Login Handler
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please fill in all fields");
@@ -84,7 +197,31 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // 1️⃣ Sign in the user
+      // 🌐 1️⃣ Check Internet connection
+      const netState = await NetInfo.fetch();
+      const isConnected = netState.isConnected;
+
+      // 📴 2️⃣ If offline → try local credential match
+      if (!isConnected) {
+        const savedEmail = await AsyncStorage.getItem("savedEmail");
+        const savedPassword = await AsyncStorage.getItem("savedPassword");
+
+        if (savedEmail && savedPassword) {
+          if (email.trim() === savedEmail && password === savedPassword) {
+            Alert.alert("Offline Mode", "Logged in offline successfully!");
+            router.replace("/DashboardScreen");
+            return;
+          } else {
+            Alert.alert("Offline Login Failed", "Email or password does not match saved credentials.");
+            return;
+          }
+        } else {
+          Alert.alert("No Offline Access", "Please connect to the internet for first login.");
+          return;
+        }
+      }
+
+      // 🌍 3️⃣ Online login → verify with Supabase
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -103,7 +240,7 @@ export default function LoginScreen() {
 
       const user = data.user;
 
-      // 2️⃣ Fetch user's profile info
+      // 4️⃣ Fetch user's profile info from Supabase
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("name, picture")
@@ -114,7 +251,7 @@ export default function LoginScreen() {
         console.error("Profile fetch error:", profileError);
       }
 
-      // 3️⃣ Merge auth user data with profile data
+      // 5️⃣ Save user data for offline/biometric use
       const fullUser = {
         id: user.id,
         email: user.email,
@@ -122,12 +259,15 @@ export default function LoginScreen() {
         picture: profile?.picture || null,
       };
 
-      // 4️⃣ Save to local storage
-      await AsyncStorage.setItem("user", JSON.stringify(fullUser));
+      await AsyncStorage.setItem("savedUserData", JSON.stringify(fullUser));
 
-      // 5️⃣ Success feedback & redirect
+      // 🧠 6️⃣ Save email/password for biometric & offline login
+      await AsyncStorage.setItem("savedEmail", email.trim());
+      await AsyncStorage.setItem("savedPassword", password);
+
+      // ✅ 7️⃣ Success
       Alert.alert("Success", t.success);
-      router.replace("/Dashboard");
+      router.replace("/DashboardScreen");
 
     } catch (err) {
       console.error("⚠️ Unexpected Error:", err);
@@ -218,6 +358,21 @@ export default function LoginScreen() {
           <Text style={styles.loginText}>{t.login}</Text>
         )}
       </TouchableOpacity>
+
+      {/* Biometric Login Option - Below Login Button */}
+      {biometricAvailable && biometricEnabled && (
+        <TouchableOpacity
+          style={styles.biometricOption}
+          onPress={handleBiometricLogin}
+          disabled={loading}
+        >
+          <Image 
+            source={require("../assets/bio.png")} 
+            style={styles.biometricIcon}
+          />
+          <Text style={styles.biometricOptionText}>{t.biometricLogin}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Forgot Password */}
       <TouchableOpacity onPress={() => router.push("/ForgotPasswordScreen")}>

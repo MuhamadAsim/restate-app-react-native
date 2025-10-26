@@ -1,11 +1,31 @@
-// OnboardingScreen.js
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OnboardingScreen = () => {
   const router = useRouter();
   const [currentScreen, setCurrentScreen] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const hasCompletedOnboarding = await AsyncStorage.getItem('hasCompletedOnboarding');
+        const storedUser = await AsyncStorage.getItem('user');
+
+        if (hasCompletedOnboarding === 'true') {
+            router.replace('/login'); // not logged in, go to login
+            return;
+          }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkStatus();
+  }, []);
 
   const screens = [
     {
@@ -42,14 +62,24 @@ const OnboardingScreen = () => {
 
   const currentScreenData = screens[currentScreen];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentScreen < screens.length - 1) {
       setCurrentScreen(currentScreen + 1);
     } else {
-      // Navigate to language screen when onboarding is complete
+      // ✅ Mark onboarding as completed
+      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
       router.push('/language');
     }
   };
+
+  // 🌀 Show loader while checking onboarding/login status
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#667eea" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: currentScreenData.bgColor }]}>
@@ -100,17 +130,13 @@ const OnboardingScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 30,
   },
-  
-  // Splash Screen Styles
   logo: {
     fontSize: 48,
     fontWeight: '700',
@@ -123,10 +149,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingVertical: 15,
     paddingHorizontal: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
     elevation: 5,
   },
   splashButtonText: {
@@ -134,12 +156,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  
-  // Onboarding Screens Styles
-  emoji: {
-    fontSize: 120,
-    marginBottom: 40,
-  },
+  emoji: { fontSize: 120, marginBottom: 40 },
   title: {
     fontSize: 24,
     fontWeight: '700',
@@ -154,36 +171,20 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     maxWidth: 300,
   },
-  
-  // Footer Navigation
-  footer: {
-    padding: 30,
-    gap: 20,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-  },
+  footer: { padding: 30, gap: 20 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#d1d5db',
   },
-  dotActive: {
-    width: 24,
-    backgroundColor: '#667eea',
-  },
+  dotActive: { width: 24, backgroundColor: '#667eea' },
   button: {
     backgroundColor: '#667eea',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#667eea',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
     elevation: 5,
   },
   buttonText: {

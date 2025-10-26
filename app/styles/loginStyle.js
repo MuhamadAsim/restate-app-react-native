@@ -8,6 +8,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     paddingTop: 40,
   },
+  
   backButton: {
     marginBottom: 20,
   },
@@ -156,6 +157,26 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: "bold",
   },
+biometricOption: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginTop: 15,
+  padding: 12,
+  gap: 10,
+},
+biometricIcon: {
+  width: 28,
+  height: 28,
+  resizeMode: 'contain',
+  marginTop: 2,  // Slight adjustment to align with text baseline
+},
+biometricOptionText: {
+  color: colors.primary,
+  fontSize: 15,
+  fontWeight: '500',
+  lineHeight: 28,  // Match icon height for better alignment
+},
 });
 
 export default styles;

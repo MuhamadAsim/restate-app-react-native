@@ -1,17 +1,22 @@
-import React, { useState } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  FlatList,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-} from "react-native";
-import * as DocumentPicker from "expo-document-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as DocumentPicker from "expo-document-picker";
+import { useState } from "react";
+import NetInfo from "@react-native-community/netinfo";
+import { supabase } from "../../lib/supabase"; // adjust path
+import * as FileSystem from "expo-file-system";
+
+
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const mainCategories = [
   { id: 1, name: "Government services", icon: "📋" },
@@ -22,20 +27,29 @@ const mainCategories = [
   { id: 6, name: "Other Documents", icon: "📄" },
 ];
 
-const documents = [
-  { id: 1, name: "National Id", icon: "🪪" },
-  { id: 2, name: "Driving Licence", icon: "📝" },
-  { id: 3, name: "Citizenship", icon: "📜" },
-  { id: 4, name: "Passport", icon: "📘" },
-  { id: 5, name: "Voter Id", icon: "🪑" },
+const quickTags = [
+  { id: 1, name: "National Id", icon: "" },
+  { id: 2, name: "Driving Licence", icon: "" },
+  { id: 3, name: "Citizenship", icon: "" },
+  { id: 4, name: "Passport", icon: "" },
+  { id: 5, name: "Voter Id", icon: "" },
+  { id: 6, name: "Birth Certificate", icon: "" },
+  { id: 7, name: "Insurance", icon: "" },
+  { id: 8, name: "Contract", icon: "" },
 ];
 
-const AddDocumentModal = ({ visible, onClose }) => {
+const AddDocumentModal = ({ visible, onClose, onDocumentAdded }) => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [selectedDocType, setSelectedDocType] = useState(null);
-  const [customName, setCustomName] = useState("");
+  const [selectedTag, setSelectedTag] = useState(null);
+  const [documentName, setDocumentName] = useState("");
   const [uploading, setUploading] = useState(false);
+
+
+
+
+
+
 
   const handlePickDocument = async () => {
     try {
@@ -45,59 +59,211 @@ const AddDocumentModal = ({ visible, onClose }) => {
       });
 
       if (result.canceled) return;
+      
       setSelectedFile(result.assets[0]);
+      
+      // Auto-fill document name with original filename if not already set
+      if (!documentName) {
+        const fileName = result.assets[0].name;
+        // Remove file extension for cleaner name
+        const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+        setDocumentName(nameWithoutExt);
+      }
     } catch (error) {
       console.log("Document pick error:", error);
     }
   };
 
-  const handleSaveDocument = async () => {
-    if (!selectedFile || !selectedCategory)
-      return Alert.alert("Missing Info", "Please select a category and file.");
-
-    setUploading(true);
-
-    // mock supabase upload delay
-    setTimeout(async () => {
-      try {
-        const now = new Date();
-        const docToSave = {
-          id: Date.now(),
-          name: customName || selectedDocType?.name || selectedFile.name,
-          category: selectedCategory.name,
-          docType: selectedDocType?.name || "Other",
-          fileUri: selectedFile.uri,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          uploadedAt: now.toISOString(),
-          uploadedDate: now.toLocaleDateString(),
-          uploadedTime: now.toLocaleTimeString(),
-        };
-
-        const stored = await AsyncStorage.getItem("userDocuments");
-        const existingDocs = stored ? JSON.parse(stored) : [];
-        await AsyncStorage.setItem(
-          "userDocuments",
-          JSON.stringify([...existingDocs, docToSave])
-        );
-
-        Alert.alert("✅ Success", "Document uploaded successfully!");
-        resetForm();
-        onClose();
-      } catch (err) {
-        console.log("Save error:", err);
-        Alert.alert("Error", "Failed to save document");
-      } finally {
-        setUploading(false);
-      }
-    }, 2000);
+  // Add log entry to AsyncStorage
+  const addLog = async (logEntry) => {
+    try {
+      const stored = await AsyncStorage.getItem("documentLogs");
+      const existingLogs = stored ? JSON.parse(stored) : [];
+      const newLogs = [logEntry, ...existingLogs]; // Add new log at the beginning
+      await AsyncStorage.setItem("documentLogs", JSON.stringify(newLogs));
+    } catch (error) {
+      console.error("Error saving log:", error);
+    }
   };
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+const handleSaveDocument = async () => {
+  if (!selectedFile) {
+    return Alert.alert("Missing File", "Please select a file to upload.");
+  }
+  if (!selectedCategory) {
+    return Alert.alert("Missing Category", "Please select a category for this document.");
+  }
+  if (!documentName.trim()) {
+    return Alert.alert("Missing Name", "Please enter a name for this document.");
+  }
+
+  setUploading(true);
+
+  try {
+    const savedUserData = await AsyncStorage.getItem("savedUserData");
+    const user = savedUserData ? JSON.parse(savedUserData) : null;
+    const userEmail = user?.email || "unknown_user";
+    const userId = user?.id;
+
+    const now = new Date();
+    const storageKey = `userDocuments_${userEmail}`;
+
+    // 🌐 1️⃣ Check Internet Connection
+    const netState = await NetInfo.fetch();
+    const isConnected = netState.isConnected;
+
+    let uploadedToCloud = false;
+    let fileUrl = null;
+
+    // ☁️ 2️⃣ If online → upload to Supabase Storage & Database
+    if (isConnected && userId) {
+      try {
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `${Date.now()}.${fileExt}`;
+        const filePath = `${userId}/${fileName}`;
+
+        // Convert local file to base64
+        const fileBase64 = await FileSystem.readAsStringAsync(selectedFile.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        const fileBuffer = Buffer.from(fileBase64, "base64");
+
+        // Upload to Supabase Storage bucket "docs"
+        const { error: uploadError } = await supabase.storage
+          .from("docs") // ✅ correct bucket name
+          .upload(filePath, fileBuffer, {
+            contentType: selectedFile.mimeType || "application/octet-stream",
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL from the same bucket
+        const { data: publicUrlData } = supabase.storage
+          .from("docs")
+          .getPublicUrl(filePath);
+
+        fileUrl = publicUrlData.publicUrl;
+        uploadedToCloud = true;
+
+        // 🗄️ Save document metadata to Supabase table "documents"
+        const { error: insertError } = await supabase.from("documents").insert([
+          {
+            user_id: userId,
+            name: documentName.trim(),
+            category: selectedCategory.name,
+            tag: selectedTag?.name || null,
+            file_url: fileUrl,
+            file_name: selectedFile.name,
+            mime_type: selectedFile.mimeType,
+            file_size: selectedFile.size,
+            shared: false,
+          },
+        ]);
+
+        if (insertError) throw insertError;
+      } catch (err) {
+        console.log("Cloud upload failed, saving locally instead:", err.message);
+        uploadedToCloud = false;
+      }
+    }
+
+    // 💾 3️⃣ Always save locally (for offline access)
+    const docToSave = {
+      id: Date.now(),
+      userEmail,
+      name: documentName.trim(),
+      originalFileName: selectedFile.name,
+      category: selectedCategory.name,
+      categoryIcon: selectedCategory.icon,
+      tag: selectedTag?.name || null,
+      tagIcon: selectedTag?.icon || null,
+      fileUri: selectedFile.uri,
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      mimeType: selectedFile.mimeType,
+      uploadedAt: now.toISOString(),
+      uploadedDate: now.toLocaleDateString(),
+      uploadedTime: now.toLocaleTimeString(),
+      uploadedToCloud, // ✅ true if uploaded successfully
+      fileUrl: fileUrl || null,
+    };
+
+    const stored = await AsyncStorage.getItem(storageKey);
+    const existingDocs = stored ? JSON.parse(stored) : [];
+    await AsyncStorage.setItem(storageKey, JSON.stringify([...existingDocs, docToSave]));
+
+    // 📝 4️⃣ Create Log Entry
+    const logEntry = {
+      id: Date.now(),
+      userEmail,
+      action: "DOCUMENT_ADDED",
+      timestamp: now.toISOString(),
+      date: now.toLocaleDateString(),
+      time: now.toLocaleTimeString(),
+      documentName: documentName.trim(),
+      documentId: docToSave.id,
+      category: selectedCategory.name,
+      tag: selectedTag?.name || "None",
+      fileName: selectedFile.name,
+      fileSize: selectedFile.size,
+      uploadedToCloud,
+      details: uploadedToCloud
+        ? `Document "${documentName.trim()}" uploaded to cloud and saved locally.`
+        : `Document "${documentName.trim()}" saved locally (offline).`,
+    };
+
+    await addLog(logEntry);
+
+    Alert.alert("✅ Success", uploadedToCloud ? "Uploaded to cloud!" : "Saved locally for now.");
+
+    if (onDocumentAdded) onDocumentAdded();
+    resetForm();
+    onClose();
+  } catch (err) {
+    console.log("Save error:", err);
+    Alert.alert("Error", "Failed to save document.");
+  } finally {
+    setUploading(false);
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   const resetForm = () => {
     setSelectedFile(null);
     setSelectedCategory(null);
-    setSelectedDocType(null);
-    setCustomName("");
+    setSelectedTag(null);
+    setDocumentName("");
   };
 
   const renderCategoryItem = ({ item }) => (
@@ -116,6 +282,7 @@ const AddDocumentModal = ({ visible, onClose }) => {
         shadowOpacity: 0.1,
         shadowRadius: 3,
         elevation: 2,
+        minWidth: 100,
       }}
       onPress={() => setSelectedCategory(item)}
     >
@@ -141,27 +308,31 @@ const AddDocumentModal = ({ visible, onClose }) => {
     </TouchableOpacity>
   );
 
-  const renderDocItem = ({ item }) => (
+  const renderTagItem = ({ item }) => (
     <TouchableOpacity
       style={{
-        paddingVertical: 10,
-        paddingHorizontal: 14,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
         marginRight: 8,
-        backgroundColor: selectedDocType?.id === item.id ? "#667eea" : "#f5f5f5",
+        marginBottom: 8,
+        backgroundColor: selectedTag?.id === item.id ? "#667eea" : "#f5f5f5",
         borderRadius: 10,
         borderWidth: 1.5,
-        borderColor: selectedDocType?.id === item.id ? "#667eea" : "#e5e5e5",
+        borderColor: selectedTag?.id === item.id ? "#667eea" : "#e5e5e5",
         flexDirection: "row",
         alignItems: "center",
       }}
-      onPress={() => setSelectedDocType(item)}
+      onPress={() => {
+        // Toggle selection - click again to deselect
+        setSelectedTag(selectedTag?.id === item.id ? null : item);
+      }}
     >
-      <Text style={{ fontSize: 20, marginRight: 6 }}>{item.icon}</Text>
+      <Text style={{ fontSize: 18, marginRight: 6 }}>{item.icon}</Text>
       <Text
         style={{
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: "500",
-          color: selectedDocType?.id === item.id ? "#fff" : "#333",
+          color: selectedTag?.id === item.id ? "#fff" : "#333",
         }}
       >
         {item.name}
@@ -229,6 +400,7 @@ const AddDocumentModal = ({ visible, onClose }) => {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
         >
           {/* File Picker Section */}
           <View
@@ -252,7 +424,7 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 marginBottom: 12,
               }}
             >
-              Select File
+              Select File *
             </Text>
             <TouchableOpacity
               style={{
@@ -297,7 +469,7 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 }}
               >
                 <Text style={{ fontSize: 12, color: "#666", marginBottom: 2 }}>
-                  Selected File:
+                  Original File:
                 </Text>
                 <Text
                   style={{ fontSize: 14, fontWeight: "600", color: "#333" }}
@@ -305,11 +477,14 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 >
                   {selectedFile.name}
                 </Text>
+                <Text style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
+                  Size: {(selectedFile.size / 1024).toFixed(1)} KB
+                </Text>
               </View>
             )}
           </View>
 
-          {/* Document Type Section */}
+          {/* Document Name Section */}
           <View
             style={{
               backgroundColor: "#fff",
@@ -328,17 +503,34 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 fontSize: 16,
                 fontWeight: "600",
                 color: "#333",
+                marginBottom: 8,
+              }}
+            >
+              Document Name *
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: "#666",
                 marginBottom: 12,
               }}
             >
-              Document Type
+              Enter a name to identify this document
             </Text>
-            <FlatList
-              horizontal
-              data={documents}
-              renderItem={renderDocItem}
-              keyExtractor={(item) => item.id.toString()}
-              showsHorizontalScrollIndicator={false}
+            <TextInput
+              placeholder="e.g., My Passport, National ID Card"
+              placeholderTextColor="#999"
+              style={{
+                borderWidth: 1.5,
+                borderColor: documentName ? "#667eea" : "#e5e5e5",
+                borderRadius: 12,
+                padding: 14,
+                fontSize: 15,
+                color: "#333",
+                backgroundColor: "#fafafa",
+              }}
+              value={documentName}
+              onChangeText={setDocumentName}
             />
           </View>
 
@@ -361,10 +553,19 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 fontSize: 16,
                 fontWeight: "600",
                 color: "#333",
-                marginBottom: 12,
+                marginBottom: 8,
               }}
             >
               Category *
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: "#666",
+                marginBottom: 12,
+              }}
+            >
+              Choose the main category for this document
             </Text>
             <FlatList
               horizontal
@@ -375,7 +576,7 @@ const AddDocumentModal = ({ visible, onClose }) => {
             />
           </View>
 
-          {/* Custom Name Section */}
+          {/* Quick Tags Section (Optional) */}
           <View
             style={{
               backgroundColor: "#fff",
@@ -393,26 +594,53 @@ const AddDocumentModal = ({ visible, onClose }) => {
                 fontSize: 16,
                 fontWeight: "600",
                 color: "#333",
+                marginBottom: 8,
+              }}
+            >
+              Quick Tag (Optional)
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                color: "#666",
                 marginBottom: 12,
               }}
             >
-              Custom Name (Optional)
+              Add a quick tag for easier filtering. Tap to select/deselect.
             </Text>
-            <TextInput
-              placeholder="Enter a custom name for this document"
-              placeholderTextColor="#999"
-              style={{
-                borderWidth: 1.5,
-                borderColor: "#e5e5e5",
-                borderRadius: 12,
-                padding: 14,
-                fontSize: 15,
-                color: "#333",
-                backgroundColor: "#fafafa",
-              }}
-              value={customName}
-              onChangeText={setCustomName}
-            />
+            <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              {quickTags.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 12,
+                    marginRight: 8,
+                    marginBottom: 8,
+                    backgroundColor: selectedTag?.id === item.id ? "#667eea" : "#f5f5f5",
+                    borderRadius: 10,
+                    borderWidth: 1.5,
+                    borderColor: selectedTag?.id === item.id ? "#667eea" : "#e5e5e5",
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                  onPress={() => {
+                    setSelectedTag(selectedTag?.id === item.id ? null : item);
+                  }}
+                >
+                  <Text style={{ fontSize: 18, marginRight: 6 }}>{item.icon}</Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      fontWeight: "500",
+                      color: selectedTag?.id === item.id ? "#fff" : "#333",
+                    }}
+                  >
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </ScrollView>
 
@@ -447,7 +675,12 @@ const AddDocumentModal = ({ visible, onClose }) => {
             disabled={uploading}
           >
             {uploading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <ActivityIndicator color="#fff" size="small" />
+                <Text style={{ color: "#fff", marginLeft: 10, fontWeight: "600" }}>
+                  Uploading...
+                </Text>
+              </View>
             ) : (
               <Text
                 style={{
