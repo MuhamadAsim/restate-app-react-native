@@ -30,18 +30,18 @@ const PromotionsSection = () => {
       {promotions.map((promo) => (
         <TouchableOpacity
           key={promo.id}
-          style={styles.promotionCard}
+          style={[styles.promotionCard, { paddingVertical: 6 }]} // ✅ Reduced height
           onPress={() => handlePress(promo.title)}
           activeOpacity={0.7}
         >
           <View style={styles.promotionLeft}>
-            <Text style={styles.promotionIcon}>{promo.icon}</Text>
+            <Text style={[styles.promotionIcon, { fontSize: 28 }]}>{promo.icon}</Text> {/* ✅ Smaller icon */}
             <View style={styles.promotionTextContainer}>
-              <Text style={styles.promotionTitle}>{promo.title}</Text>
-              <Text style={styles.promotionSubtitle}>{promo.subtitle}</Text>
+              <Text style={[styles.promotionTitle, { fontSize: 15 }]}>{promo.title}</Text> {/* ✅ Smaller text */}
+              <Text style={[styles.promotionSubtitle, { fontSize: 12 }]}>{promo.subtitle}</Text> {/* ✅ Smaller subtitle */}
             </View>
           </View>
-          <Icon name="chevron-right" size={20} color="#888" />
+          <Icon name="chevron-right" size={18} color="#888" /> {/* ✅ Smaller arrow */}
         </TouchableOpacity>
       ))}
     </View>

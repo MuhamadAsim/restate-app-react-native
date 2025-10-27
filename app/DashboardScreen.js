@@ -1,33 +1,54 @@
 // Main Dashboard Component (App.js)
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  ScrollView, 
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Dimensions,
   SafeAreaView,
-  TouchableOpacity 
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import { useRouter } from 'expo-router';
 
 // Import components
-import Navbar from './components/NavbarDashboard';
-import DocumentsSection from './components/DocumentsSection';
+import BottomNav from './components/BottomNavbar';
 import CategoriesSection from './components/CategoriesSection';
 import ComingSoonSection from './components/ComingSoonSection';
+import DocumentsSection from './components/DocumentsSection';
+import Navbar from './components/NavbarDashboard';
 import PromotionsSection from './components/PromotionsSection';
-import BottomNav from './components/BottomNavbar';
 import styles from './styles/dashboardStyle';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const BANNER_WIDTH = SCREEN_WIDTH * 0.93; // 88% of screen width
+const BANNER_MARGIN = 15; // Space between banners
 
 const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
+  const bannerScrollRef = useRef(null);
+
+  // Scroll to middle banner on mount
+  useEffect(() => {
+    setTimeout(() => {
+      if (bannerScrollRef.current) {
+        // Adjusted scroll position for proper centering
+        const centerPosition = BANNER_WIDTH / 80 + BANNER_MARGIN / 15;
+        bannerScrollRef.current.scrollTo({
+          x: centerPosition,
+          animated: false,
+        });
+      }
+    }, 150);
+  }, []);
+
 
   return (
     <SafeAreaView style={styles.container}>
       <Navbar />
-      
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
@@ -40,24 +61,79 @@ const App = () => {
           />
         </View>
 
-        {/* Advertisement Banner 1 */}
-        <View style={[styles.adBanner, styles.banner1]}>
-          <Text style={styles.bannerText}>Banner screen 1</Text>
-        </View>
+        {/* 3 Slideable Banners */}
+        <ScrollView
+          ref={bannerScrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={BANNER_WIDTH + BANNER_MARGIN}
+          snapToAlignment="center" // 👈 was "start"
+          contentContainerStyle={{
+            paddingHorizontal: (SCREEN_WIDTH - BANNER_WIDTH) / 2,
+          }}
+          style={{ marginBottom: 20 }}
+        >
+
+          {/* Banner 1A */}
+          <View style={[
+            styles.adBanner,
+            {
+              width: BANNER_WIDTH,
+              backgroundColor: '#FF6B6B',
+              marginRight: BANNER_MARGIN,
+            }
+          ]}>
+            <Text style={styles.bannerText}>Banner 1A</Text>
+            <Text style={{ color: 'white', fontSize: 12, marginTop: 5 }}>
+              Swipe to explore more
+            </Text>
+          </View>
+
+          {/* Banner 1B */}
+          <View style={[
+            styles.adBanner,
+            {
+              width: BANNER_WIDTH,
+              backgroundColor: '#4ECDC4',
+              marginRight: BANNER_MARGIN,
+            }
+          ]}>
+            <Text style={styles.bannerText}>Banner 1B</Text>
+            <Text style={{ color: 'white', fontSize: 12, marginTop: 5 }}>
+              Welcome to your dashboard
+            </Text>
+          </View>
+
+          {/* Banner 1C */}
+          <View style={[
+            styles.adBanner,
+            {
+              width: BANNER_WIDTH,
+              backgroundColor: '#95E1D3',
+            }
+          ]}>
+            <Text style={styles.bannerText}>Banner 1C</Text>
+            <Text style={{ color: 'white', fontSize: 12, marginTop: 5 }}>
+              Discover new features
+            </Text>
+          </View>
+        </ScrollView>
 
         {/* Documents Section */}
         <DocumentsSection />
 
         {/* Bottom Section with Notes and Banner */}
         <View style={styles.bottomSection}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.notesCard}
             onPress={() => router.push('/NotesScreen')}
           >
             <Icon name="file-text" size={24} color="white" />
             <Text style={styles.notesTitle}>New note</Text>
           </TouchableOpacity>
-          
+
           <View style={[styles.adBanner, styles.banner2, styles.banner2Small]}>
             <Text style={styles.bannerText}>Banner 2</Text>
           </View>

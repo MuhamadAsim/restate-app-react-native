@@ -20,29 +20,25 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { captureRef } from "react-native-view-shot";
 import { supabase } from "../lib/supabase";
-
-
-
+import AddDocument from "./components/AddDocument"; // ✅ Import AddDocument
 
 const DocumentsScreen = () => {
   const router = useRouter();
-  const params = useLocalSearchParams(); // ✅ Get params from expo-router
+  const params = useLocalSearchParams();
 
   const [documents, setDocuments] = useState([]);
   const [filteredDocuments, setFilteredDocuments] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [showQR, setShowQR] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false); // ✅ Add this state
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("");
   const qrCodeRef = useRef(null);
 
-
-  // Get filter parameters from expo-router params
-  const filterTag = params?.tag || null; // e.g., "Voter Id", "Passport"
-  const filterCategory = params?.category || null; // e.g., "Government services"
-  const filterType = params?.filterType || null; // "tag" or "category"
-
+  const filterTag = params?.tag || null;
+  const filterCategory = params?.category || null;
+  const filterType = params?.filterType || null;
 
 
 
@@ -557,14 +553,6 @@ const DocumentsScreen = () => {
 
 
 
-
-
-
-
-
-
-
-
   // 🧩 Function to sync pending deletions when online
   const syncPendingDeletions = async () => {
     try {
@@ -779,7 +767,6 @@ const DocumentsScreen = () => {
           </View>
         </View>
 
-        {/* Filter Info Badge */}
         {(filterTag || filterCategory) && (
           <View style={styles.filterBadge}>
             <Ionicons name="funnel-outline" size={14} color="#3B82F6" />
@@ -788,7 +775,6 @@ const DocumentsScreen = () => {
             </Text>
             <TouchableOpacity
               onPress={() => {
-                // Clear filter and show all documents
                 router.push("/DocumentsScreen");
               }}
               style={styles.clearFilterBtn}
@@ -843,19 +829,25 @@ const DocumentsScreen = () => {
         />
       )}
 
-      {/* Floating Add Button */}
+      {/* Floating Add Button - ✅ FIXED: Open modal instead of navigate */}
       <TouchableOpacity
         style={styles.addButton}
-        onPress={() => {
-          // Navigate to add document screen
-          router.push("/components/AddDocument");
-        }}
+        onPress={() => setShowAddModal(true)} // ✅ Changed this
       >
         <Ionicons name="add" size={32} color="#fff" />
       </TouchableOpacity>
 
-      {/* QR Modal */}
+      {/* ✅ AddDocument Modal */}
+      <AddDocument
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onDocumentAdded={() => {
+          setShowAddModal(false);
+          loadDocuments(); // Refresh the document list
+        }}
+      />
 
+      {/* QR Modal */}
       <Modal visible={showQR} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
@@ -866,7 +858,7 @@ const DocumentsScreen = () => {
               <View
                 ref={qrCodeRef}
                 style={styles.qrContainer}
-                collapsable={false} // Important for Android
+                collapsable={false}
               >
                 <QRCode
                   value={selectedDoc.fileUrl}
@@ -880,7 +872,6 @@ const DocumentsScreen = () => {
               Scan this code to access the document
             </Text>
 
-            {/* Document Details */}
             {selectedDoc && (
               <View style={styles.qrDetails}>
                 <Text style={styles.qrDetailText}>
@@ -897,9 +888,7 @@ const DocumentsScreen = () => {
               </View>
             )}
 
-            {/* Action Buttons */}
             <View style={styles.qrActions}>
-              {/* Share QR Code Button */}
               <TouchableOpacity
                 style={styles.qrShareBtn}
                 onPress={shareQRCode}
@@ -908,7 +897,6 @@ const DocumentsScreen = () => {
                 <Text style={styles.qrShareText}>Share QR Code</Text>
               </TouchableOpacity>
 
-              {/* Close Button */}
               <TouchableOpacity
                 style={styles.closeBtn}
                 onPress={() => setShowQR(false)}

@@ -447,4 +447,61 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  // Add these to your existing styles
+bannerWrapper: {
+  marginBottom: 20,
+  paddingHorizontal: 20,
+},
+bannerScrollContent: {
+  paddingRight: 0,
+},
+scrollableBanner: {
+  marginRight: 0,
+  borderRadius: 16,
+  padding: 20,
+  minHeight: 140,
+  justifyContent: 'space-between',
+},
+bannerTitle: {
+  fontSize: 22,
+  fontWeight: 'bold',
+  color: 'white',
+  marginBottom: 8,
+},
+bannerSubtitle: {
+  fontSize: 14,
+  color: 'rgba(255,255,255,0.9)',
+  lineHeight: 20,
+},
+bannerIndicators: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: 10,
+},
+dotContainer: {
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginTop: 12,
+},
+dot: {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: '#ddd',
+  marginHorizontal: 4,
+},
+dotActive: {
+  backgroundColor: '#667eea',
+  width: 24,
+}
 });
+
+
+
+
+
+
+
+

@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   newUpdateBanner: {
     backgroundColor: "#8b5cf6",
     borderRadius: 16,
-    padding: 16,
+    padding: 32,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

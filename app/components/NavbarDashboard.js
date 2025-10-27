@@ -29,7 +29,7 @@ const Navbar = () => {
       try {
         const storedUser = await AsyncStorage.getItem("savedUserData");
         const savedProfileImage = await AsyncStorage.getItem("profileImage");
-        
+
         if (storedUser) {
           const userData = JSON.parse(storedUser);
           setUser(userData);
@@ -39,7 +39,7 @@ const Navbar = () => {
             userData.user_metadata?.username ||
             userData.email?.split("@")[0] ||
             "User";
-          
+
           setUsername(displayName);
         }
 
@@ -64,7 +64,7 @@ const Navbar = () => {
   const handleOpenScanner = async () => {
     const { status } = await Camera.requestCameraPermissionsAsync();
     setHasPermission(status === "granted");
-    
+
     if (status === "granted") {
       setShowScanner(true);
       setScanned(false);
@@ -84,7 +84,7 @@ const Navbar = () => {
       const urlParts = cloudUrl.split('/');
       const fileName = urlParts[urlParts.length - 1]; // Get "1234567890.pdf"
       const fileExtension = fileName.split('.').pop().toLowerCase();
-      
+
       // Create local filename
       const timestamp = Date.now();
       const localFileName = `Scanned_${timestamp}.${fileExtension}`;
@@ -99,7 +99,7 @@ const Navbar = () => {
 
       // Get file info to verify download
       const fileInfo = await FileSystem.getInfoAsync(downloadResult.uri);
-      
+
       if (!fileInfo.exists) {
         throw new Error("Downloaded file not found");
       }
@@ -148,7 +148,7 @@ const Navbar = () => {
   // Handle QR code scan
   const handleBarCodeScanned = async ({ type, data }) => {
     setScanned(true);
-    
+
     console.log("📷 [QR SCANNED]", { type, data });
 
     // Validate if it's a URL
@@ -185,7 +185,7 @@ const Navbar = () => {
     } catch (error) {
       console.error("❌ [QR SCAN FLOW ERROR]", error);
       setShowScanner(false);
-      
+
       Alert.alert(
         "Download Failed",
         `Unable to download the document from the scanned QR code.\n\nError: ${error.message}\n\nPlease check your internet connection and try again.`
@@ -198,9 +198,9 @@ const Navbar = () => {
       <View style={styles.navbar}>
         <View style={styles.navbarLeft}>
           {profileImage ? (
-            <Image 
-              source={{ uri: profileImage }} 
-              style={localStyles.profilePicImage} 
+            <Image
+              source={{ uri: profileImage }}
+              style={localStyles.profilePicImage}
             />
           ) : (
             <View style={styles.profilePic}>
@@ -219,8 +219,13 @@ const Navbar = () => {
         <View style={styles.navbarRight}>
           {/* QR Scanner Button */}
           <TouchableOpacity style={styles.iconBtn} onPress={handleOpenScanner}>
-            <Icon name="camera" size={24} color="#333" />
+            <Image
+              source={require("../../assets/qrscanner.png")}
+              style={{ width: 26, height: 26, tintColor: "#333" }}
+              resizeMode="contain"
+            />
           </TouchableOpacity>
+
 
           <View>
             <TouchableOpacity style={styles.iconBtn} onPress={toggleDropdown}>
@@ -260,16 +265,16 @@ const Navbar = () => {
                 {downloading ? "⏳ Downloading from Cloud..." : "📷 Scan QR Code"}
               </Text>
               <Text style={localStyles.scanSubtext}>
-                {downloading 
-                  ? "Please wait while we fetch your document" 
+                {downloading
+                  ? "Please wait while we fetch your document"
                   : "Position the QR code within the frame"}
               </Text>
-              
+
               {downloading && (
                 <View style={localStyles.downloadingContainer}>
-                  <ActivityIndicator 
-                    size="large" 
-                    color="#667eea" 
+                  <ActivityIndicator
+                    size="large"
+                    color="#667eea"
                   />
                   <Text style={localStyles.downloadingText}>
                     Downloading from cloud storage...
