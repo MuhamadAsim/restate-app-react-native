@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as Linking from "expo-linking";
-import { useLocalSearchParams, useRouter } from "expo-router"; // ✅ Use expo-router hooks
-import { useCallback, useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +18,9 @@ import {
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
+import { captureRef } from "react-native-view-shot";
 import { supabase } from "../lib/supabase";
+
 
 
 
@@ -32,6 +35,8 @@ const DocumentsScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("");
+  const qrCodeRef = useRef(null);
+
 
   // Get filter parameters from expo-router params
   const filterTag = params?.tag || null; // e.g., "Voter Id", "Passport"
@@ -340,49 +345,49 @@ const DocumentsScreen = () => {
     return colors[category] || "#6B7280";
   };
 
-  
 
- 
-// Update handleView to use fileUrl
-const handleView = (doc) => {
-  Alert.alert(
-    "Open Document",
-    `Do you want to view "${doc.name}"?`,
-    [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
-      {
-        text: "Open",
-        onPress: () => {
-          const url = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
-          Linking.openURL(url).catch(() => {
-            Alert.alert("Error", "Cannot open this document");
-          });
+
+
+  // Update handleView to use fileUrl
+  const handleView = (doc) => {
+    Alert.alert(
+      "Open Document",
+      `Do you want to view "${doc.name}"?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
         },
-      },
-    ],
-    { cancelable: true }
-  );
-};
+        {
+          text: "Open",
+          onPress: () => {
+            const url = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
+            Linking.openURL(url).catch(() => {
+              Alert.alert("Error", "Cannot open this document");
+            });
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
 
 
- // Update handleShare to use fileUrl
-const handleShare = async (doc) => {
-  try {
-    const shareUrl = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
-    const tagInfo = doc.tag ? `\n🏷️ Tag: ${doc.tag}` : "";
-    await Share.share({
-      message: `📄 ${doc.name}\n📁 Category: ${doc.category}${tagInfo}\n📅 Uploaded: ${doc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
-      title: `Share ${doc.name}`, // Added title for better UX
-    });
-  } catch (error) {
-    console.error("Share error:", error);
-    Alert.alert("Error", "Unable to share document link.");
-  }
-};
+  // Update handleShare to use fileUrl
+  const handleShare = async (doc) => {
+    try {
+      const shareUrl = doc.fileUrl || doc.fileUri; // ✅ FIXED: Use fileUrl
+      const tagInfo = doc.tag ? `\n🏷️ Tag: ${doc.tag}` : "";
+      await Share.share({
+        message: `📄 ${doc.name}\n📁 Category: ${doc.category}${tagInfo}\n📅 Uploaded: ${doc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
+        title: `Share ${doc.name}`, // Added title for better UX
+      });
+    } catch (error) {
+      console.error("Share error:", error);
+      Alert.alert("Error", "Unable to share document link.");
+    }
+  };
 
   // Show QR Code
   const handleQR = (doc) => {
@@ -391,6 +396,34 @@ const handleShare = async (doc) => {
   };
 
 
+  const shareQRCode = async () => {
+    if (!selectedDoc) return;
+
+    try {
+      // Capture the QR code as an image
+      const uri = await captureRef(qrCodeRef, {
+        format: 'png',
+        quality: 1,
+      });
+
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+
+      if (!isAvailable) {
+        Alert.alert('Error', 'Sharing is not available on this device');
+        return;
+      }
+
+      // Share the QR code image
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: `Share QR Code - ${selectedDoc.name}`,
+      });
+    } catch (error) {
+      console.error('QR Share error:', error);
+      Alert.alert('Error', 'Failed to share QR code');
+    }
+  };
 
 
 
@@ -830,9 +863,13 @@ const handleShare = async (doc) => {
             <Text style={styles.qrSubtitle}>{selectedDoc?.name}</Text>
 
             {selectedDoc && (
-              <View style={styles.qrContainer}>
+              <View
+                ref={qrCodeRef}
+                style={styles.qrContainer}
+                collapsable={false} // Important for Android
+              >
                 <QRCode
-                  value={selectedDoc.fileUrl || selectedDoc.fileUri} // ✅ FIXED: Use fileUrl instead of cloudUrl
+                  value={selectedDoc.fileUrl}
                   size={220}
                   backgroundColor="white"
                 />
@@ -862,27 +899,13 @@ const handleShare = async (doc) => {
 
             {/* Action Buttons */}
             <View style={styles.qrActions}>
-              {/* Share Button */}
+              {/* Share QR Code Button */}
               <TouchableOpacity
                 style={styles.qrShareBtn}
-                onPress={async () => {
-                  if (selectedDoc) {
-                    try {
-                      const shareUrl = selectedDoc.fileUrl || selectedDoc.fileUri;
-                      const tagInfo = selectedDoc.tag ? `\n🏷️ Tag: ${selectedDoc.tag}` : "";
-                      await Share.share({
-                        message: `📄 ${selectedDoc.name}\n📁 Category: ${selectedDoc.category}${tagInfo}\n📅 Uploaded: ${selectedDoc.uploadedDate}\n\nAccess it here: ${shareUrl}`,
-                        title: `Share ${selectedDoc.name}`,
-                      });
-                    } catch (error) {
-                      console.error("Share error:", error);
-                      Alert.alert("Error", "Unable to share document.");
-                    }
-                  }
-                }}
+                onPress={shareQRCode}
               >
                 <Ionicons name="share-social-outline" size={20} color="#fff" />
-                <Text style={styles.qrShareText}>Share Link</Text>
+                <Text style={styles.qrShareText}>Share QR Code</Text>
               </TouchableOpacity>
 
               {/* Close Button */}
@@ -1252,5 +1275,99 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontSize: 16,
     fontWeight: "600",
-  }
+  },
+   modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBox: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  qrTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  qrSubtitle: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  qrContainer: {
+    padding: 20,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+    marginBottom: 16,
+  },
+  qrInstruction: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  qrDetails: {
+    width: "100%",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  qrDetailText: {
+    fontSize: 13,
+    color: "#4B5563",
+    marginVertical: 2,
+  },
+  qrActions: {
+    width: "100%",
+    gap: 10,
+  },
+  qrShareBtn: {
+    backgroundColor: "#059669",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#059669",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  qrShareText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+  closeBtn: {
+    backgroundColor: "#F3F4F6",
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  closeText: {
+    color: "#6B7280",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });
